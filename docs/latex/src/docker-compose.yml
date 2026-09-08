@@ -1,0 +1,120 @@
+# ot-lab — versión para macOS (Docker Desktop, Intel o Apple Silicon)
+#
+# Cambios respecto a la versión Linux:
+#  - platform: linux/amd64 en openplc y conpot (solo publican imagen amd64;
+#    en Apple Silicon corren bajo Rosetta/QEMU; activar "Use Rosetta" en
+#    Docker Desktop > Settings > General para mejor rendimiento).
+#  - restart: unless-stopped para que el lab vuelva solo tras reiniciar el Mac.
+#  - Puerto 8883 de mosquitto eliminado (no hay listener TLS configurado).
+#  - Nota: en macOS el host NO alcanza las IPs 172.28.0.x directamente; usa
+#    siempre localhost:<puerto publicado>. Entre contenedores sí funcionan.
+#
+# Copia original (Linux): docker-compose.linux.yml.bak
+
+name: ot-lab
+
+volumes:
+  ignition-data:
+
+networks:
+  ot-lab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+services:
+  modbus-sim:
+    image: oitc/modbus-server:latest
+    container_name: modbus-sim
+    restart: unless-stopped
+    command: -f /server_config.json
+    volumes:
+      - ./modbus/server.json:/server_config.json:ro
+    ports: ["5020:5020"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.30 }
+
+  openplc:
+    image: tuttas/openplc_v3
+    platform: linux/amd64          # imagen solo amd64
+    container_name: openplc
+    restart: unless-stopped
+    ports: ["8080:8080", "502:502"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.10 }
+
+  opc-plc:
+    image: mcr.microsoft.com/iotedge/opc-plc:latest
+    container_name: opc-plc
+    restart: unless-stopped
+    command: >
+      --pn=50000 --autoaccept --sph --sn=5 --sr=10 --st=uint
+      --fn=5 --fr=1 --ft=uint --gn=5 --ut --dca
+    ports: ["50000:50000"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.20 }
+
+  opcua-py:
+    build: ./opcua
+    container_name: opcua-py
+    restart: unless-stopped
+    ports: ["4840:4840"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.21 }
+
+  ignition:
+    image: inductiveautomation/ignition:latest
+    container_name: ignition
+    restart: unless-stopped
+    environment:
+      ACCEPT_IGNITION_EULA: "Y"
+      GATEWAY_ADMIN_PASSWORD: "lab1234!"
+      IGNITION_EDITION: "standard"
+    volumes:
+      # Volumen con nombre, no bind mount: la imagen necesita sembrar su data/ inicial
+      - ignition-data:/usr/local/bin/ignition/data
+    ports: ["8088:8088"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.50 }
+
+  fuxa:
+    image: frangoteam/fuxa:latest
+    container_name: fuxa
+    restart: unless-stopped
+    volumes:
+      - ./fuxa-data:/usr/src/app/FUXA/server/_appdata
+    ports: ["1881:1881"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.51 }
+
+  node-red:
+    image: nodered/node-red:latest
+    container_name: node-red
+    restart: unless-stopped
+    volumes:
+      - ./nodered-data:/data
+    ports: ["1880:1880"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.52 }
+
+  conpot:
+    image: honeynet/conpot:latest
+    platform: linux/amd64          # imagen solo amd64
+    container_name: conpot
+    restart: unless-stopped
+    # La imagen no tiene ENTRYPOINT y el binario no está en PATH: usar ruta completa y -f (foreground)
+    command: ["/home/conpot/.local/bin/conpot", "--template", "default", "--logfile", "/var/log/conpot/conpot.log", "-f", "--temp_dir", "/tmp"]
+    ports: ["10502:502", "10102:102", "10080:80", "10161:161/udp"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.90 }
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports: ["1883:1883"]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.60 }

@@ -1,0 +1,23 @@
+# Datos persistentes de los contenedores (se regeneran)
+fuxa-data/
+nodered-data/
+ignition-data/
+
+# Capturas de red (pueden ser grandes; súbelas aparte si hacen falta)
+captures/*.pcap
+captures/*.pcapng
+
+# Artefactos de compilación LaTeX
+docs/latex/*.aux
+docs/latex/*.log
+docs/latex/*.out
+docs/latex/*.toc
+docs/latex/*.lof
+docs/latex/*.lot
+docs/latex/*.fls
+docs/latex/*.fdb_latexmk
+docs/latex/*.synctex.gz
+docs/latex/capitulos/*.aux
+
+# macOS
+.DS_Store

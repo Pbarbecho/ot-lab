@@ -1,0 +1,244 @@
+\chapter{Prácticas guiadas}
+\label{cap:practicas}
+
+Con el laboratorio en marcha, este capítulo recorre los protocolos y herramientas en el orden de la figura~\ref{fig:ruta}. La figura~\ref{fig:topologia} muestra la topología completa, incluido el segmento físico que se añade en el capítulo~\ref{cap:hardware}; la figura~\ref{fig:flujo} resume qué protocolo une a cada par de componentes.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{fig1_topologia}
+  \caption{Topología completa del laboratorio: contenedores Docker en el host y segmento OT físico con Controllino y ESP32 PLC~14.}
+  \label{fig:topologia}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{fig3_flujo}
+  \caption{Flujo de datos y protocolos entre los componentes del laboratorio.}
+  \label{fig:flujo}
+\end{figure}
+
+% -----------------------------------------------------------------------------
+\section{Práctica 1 --- Modbus TCP}
+\label{sec:prac-modbus}
+
+\subsection{Esclavo simulado: \cmd{modbus-sim}}
+
+El servicio \cmd{modbus-sim} ejecuta \cmd{oitc/modbus-server}, un esclavo Modbus TCP en Python cuyos registros iniciales se definen en \cmd{modbus/server.json} (anexo~\ref{sec:anexo-modbus}). Escucha en el puerto 5020 con estos valores:
+
+\begin{table}[H]
+\centering\small
+\caption{Registros iniciales del esclavo simulado.}
+\begin{tabular}{llll}
+\toprule
+\textbf{Tabla} & \textbf{Offset} & \textbf{Valor} & \textbf{Notación 1-based} \\
+\midrule
+Holding registers & 0, 1, 2 & 1234, 25, 72 & 40001--40003 \\
+Input registers & 0 & 999 & 30001 \\
+Coils & 0, 1 & 0, 1 & 00001--00002 \\
+Discrete inputs & 0, 1 & 1, 0 & 10001--10002 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{lstlisting}[style=bash]
+docker compose up -d modbus-sim
+docker compose logs modbus-sim      # "Start Modbus TCP server on 0.0.0.0:5020"
+\end{lstlisting}
+
+\subsection{Cliente Modbus desde un contenedor}
+
+Sin instalar nada en el host, un contenedor Python unido a la red \lab{} lee y escribe registros:
+
+\begin{lstlisting}[style=bash]
+docker run --rm --network ot-lab python:3.12-slim sh -c \
+  "pip -q install pymodbus && python - <<'EOF'
+from pymodbus.client import ModbusTcpClient
+c = ModbusTcpClient('172.28.0.30', port=5020); c.connect()
+print(c.read_holding_registers(0, count=3, slave=1).registers)
+c.write_register(1, 42, slave=1)
+print(c.read_holding_registers(0, count=3, slave=1).registers)
+c.close()
+EOF"
+\end{lstlisting}
+
+\begin{ok}
+Primera línea \cmd{[1234, 25, 72]}; segunda \cmd{[1234, 42, 72]}. La escritura (FC~06) modificó el offset~1.
+\end{ok}
+
+Alternativa con \cmd{mbpoll}: \cmd{docker run --rm --network ot-lab debian:bookworm sh -c "apt-get -qq update \&\& apt-get -qq install -y mbpoll >/dev/null \&\& mbpoll -m tcp -a 1 -r 1 -c 3 -p 5020 172.28.0.30 -1"}. Obsérvese que \cmd{mbpoll} usa direcciones 1-based (\cmd{-r 1} es el offset~0).
+
+\subsection{PLC virtual: OpenPLC}
+\label{sec:prac-openplc}
+
+\begin{enumerate}
+  \item Abrir \url{http://localhost:8080} (\cmd{openplc}/\cmd{openplc}).
+  \item \menu{Programs \ra{} Upload}: subir un programa \cmd{.st} (el repositorio de OpenPLC incluye ejemplos; el más simple copia una entrada a una salida) y \menu{Launch program}. \menu{Start PLC}.
+  \item \menu{Settings}: comprobar que \emph{Modbus Server} está habilitado en el puerto 502. OpenPLC ya es un esclavo Modbus: sus \cmd{\%QX0.0} son coils 0--7, sus \cmd{\%IW100} registros de entrada, etc.
+  \item Para que además actúe como \textbf{maestro} y lea el simulador: \menu{Slave Devices \ra{} Add new device}, protocolo \emph{Generic Modbus TCP Device}, IP \ip{172.28.0.30}, puerto 5020, \emph{Holding Registers -- Read} start 0 size 3. OpenPLC mapea esos registros a \cmd{\%IW100..\%IW102} y los sondea cada 100~ms: ya hay tráfico Modbus continuo entre dos contenedores.
+\end{enumerate}
+
+\begin{nota}
+OpenPLC, como maestro, abre una conexión TCP al simulador y la mantiene, enviando peticiones FC~03 periódicas. Esa es la primera ``firma'' de sondeo que se analizará en la práctica~\ref{sec:prac-captura}.
+\end{nota}
+
+% -----------------------------------------------------------------------------
+\section{Práctica 2 --- OPC UA}
+\label{sec:prac-opcua}
+
+\subsection{Servidor simulado: OPC PLC}
+
+\cmd{opc-plc} arranca con opciones que generan nodos lentos (\cmd{--sn=5 --sr=10}: 5 nodos cada 10~s), rápidos (\cmd{--fn=5 --fr=1}) y con anomalías (\cmd{--gn=5}), acepta cualquier certificado de cliente (\cmd{--autoaccept}) y permite usuarios anónimos (\cmd{--ut}). Endpoint: \nolinkurl{opc.tcp://localhost:50000} desde el host; \nolinkurl{opc.tcp://172.28.0.20:50000} desde otros contenedores.
+
+\subsection{Servidor propio en Python}
+
+\cmd{opcua-py} se construye desde \cmd{opcua/Dockerfile} y ejecuta \cmd{server.py} (anexo~\ref{sec:anexo-opcua}), que publica el objeto \cmd{Tanque1} con \cmd{Nivel} (senoide 20--80), \cmd{Temperatura} (15--25) y \cmd{Valvula} (booleano escribible). Endpoint: \nolinkurl{opc.tcp://localhost:4840/lab/}. Para modificarlo: editar \cmd{server.py} y \cmd{docker compose up -d --build opcua-py}.
+
+\subsection{Cliente UaExpert}
+
+\begin{enumerate}
+  \item \menu{Add Server \ra{} Custom Discovery}: introducir \nolinkurl{opc.tcp://localhost:50000} y \nolinkurl{opc.tcp://localhost:4840/lab/}. UaExpert lista los endpoints de cada servidor con sus políticas.
+  \item Conectar primero con \textbf{None / None} (sin seguridad) y anónimo. Navegar hasta \cmd{Objects \ra{} Tanque1 \ra{} Nivel}, arrastrarlo a \emph{Data Access View} y ver cómo cambia cada segundo. Escribir \cmd{true} en \cmd{Valvula}.
+  \item Mientras, capturar el tráfico (práctica~\ref{sec:prac-captura}) y observar en Wireshark, con filtro \cmd{opcua}, los mensajes \cmd{Hello}, \cmd{OpenSecureChannel}, \cmd{CreateSession}, \cmd{ActivateSession}, \cmd{Browse}, \cmd{Read}, \cmd{CreateSubscription} y los \cmd{Publish} periódicos, con los valores legibles.
+  \item Desconectar y reconectar con \textbf{Basic256Sha256 / Sign \& Encrypt}. Aceptar el certificado del servidor (\emph{Trust Server Certificate}). Repetir la captura: tras el \cmd{OpenSecureChannel} solo se ven mensajes \cmd{MSG} con carga cifrada.
+\end{enumerate}
+
+\begin{ok}
+Dos capturas: una con valores de \cmd{Nivel} legibles en los \cmd{Publish}, otra donde solo los mensajes \cmd{HEL/ACK}, \cmd{OPN} y los certificados son visibles. Anotar qué campos siguen en claro en la segunda (URL del endpoint, política, certificados X.509).
+\end{ok}
+
+Cliente en contenedor, como alternativa a UaExpert:
+
+\begin{lstlisting}[style=bash]
+docker run --rm --network ot-lab python:3.12-slim sh -c \
+  "pip -q install asyncua && python - <<'EOF'
+import asyncio
+from asyncua import Client
+async def main():
+    async with Client('opc.tcp://172.28.0.21:4840/lab/') as c:
+        n = await c.nodes.root.get_child(['0:Objects','2:Tanque1','2:Nivel'])
+        print('Nivel =', await n.read_value())
+asyncio.run(main())
+EOF"
+\end{lstlisting}
+
+% -----------------------------------------------------------------------------
+\section{Práctica 3 --- SCADA}
+\label{sec:prac-scada}
+
+\subsection{Ignition}
+\label{sec:prac-ignition}
+
+Ignition corre \emph{dentro} de Docker, por lo que debe usar las IPs de la red \lab{}, nunca \cmd{localhost}.
+
+\begin{enumerate}
+  \item Entrar en \url{http://localhost:8088} (\cmd{admin}/\cmd{lab1234!}); rechazar el Quick Start (sección~\ref{sec:ignition-primer}).
+  \item \menu{Config \ra{} OPC UA \ra{} Device Connections \ra{} Create new Device \ra{} Modbus TCP}: nombre \cmd{OpenPLC}, host \ip{172.28.0.10}, puerto 502. Repetir con nombre \cmd{ModbusSim}, host \ip{172.28.0.30}, puerto 5020. En cada dispositivo, pestaña \emph{Advanced}: \emph{Max concurrent requests}~=~1 si se va a comparar con los PLC físicos.
+  \item En el dispositivo Modbus, \menu{More \ra{} Addresses}: definir un rango, p.\,ej. prefijo \cmd{HR}, tipo \emph{HoldingRegister}, inicio 1, fin 3 (Ignition usa direcciones 1-based). Esto genera tags navegables.
+  \item \menu{Config \ra{} OPC UA \ra{} Connections \ra{} Create new}: endpoint \nolinkurl{opc.tcp://172.28.0.20:50000} y otro \nolinkurl{opc.tcp://172.28.0.21:4840/lab/}, política \cmd{None} para empezar. Ignition también expone su propio servidor OPC UA en el 62541.
+  \item \menu{Status \ra{} Connections \ra{} Devices} debe mostrar los dispositivos como \emph{Connected}.
+  \item Descargar el \textbf{Designer Launcher} desde la página principal del Gateway, añadir el Gateway \cmd{localhost:8088}, abrir el Designer, crear un proyecto Perspective, arrastrar desde el \emph{Tag Browser} (\cmd{[default]} \ra{} dispositivos) los tags \cmd{HR1..HR3} y \cmd{Tanque1/Nivel} a una vista y guardar. Abrir la sesión Perspective en el navegador.
+\end{enumerate}
+
+\begin{ok}
+Los valores del simulador (1234, 25, 72) y el \cmd{Nivel} senoidal aparecen en la vista Perspective y se actualizan. Al capturar en \cmd{ignition} se ve un sondeo Modbus regular (por defecto cada 1~s, tag group \emph{Default}) hacia cada dispositivo y un \cmd{Publish} OPC UA hacia cada servidor.
+\end{ok}
+
+\subsection{FUXA}
+
+En \url{http://localhost:1881}: \menu{Connections \ra{} +}: tipo \emph{ModbusTCP}, IP \ip{172.28.0.30}, puerto 5020, esclavo~1; añadir tags con dirección 40001--40003 (FUXA usa notación 1-based con prefijo). Otra conexión \emph{OPC UA} a \nolinkurl{opc.tcp://172.28.0.21:4840/lab/} y navegar hasta \cmd{Tanque1}. Crear una vista con un \emph{gauge} enlazado a \cmd{Nivel}. Comparar en Wireshark el patrón de sondeo de FUXA con el de Ignition: número de conexiones TCP y periodo.
+
+\subsection{Node-RED}
+
+En \url{http://localhost:1880}: \menu{Manage palette \ra{} Install}: \cmd{node-red-contrib-modbus} y \cmd{node-red-contrib-opcua}. Flujo mínimo: nodo \emph{Modbus Read} (servidor \ip{172.28.0.30}:5020, FC~3, dirección 0, cantidad 3, cada 500~ms) \ra{} \emph{debug}. Segundo flujo: \emph{OpcUa Client} suscrito a \cmd{ns=2;s=...} \ra{} \emph{mqtt out} hacia \ip{172.28.0.60} topic \cmd{ot/nodered/nivel}. Node-RED se convierte así en pasarela OPC UA\ra{}MQTT y en generador de tráfico continuo.
+
+% -----------------------------------------------------------------------------
+\section{Práctica 4 --- Captura y análisis de tráfico}
+\label{sec:prac-captura}
+
+\subsection{Capturar dentro de la red Docker con netshoot}
+
+El método universal (Linux, macOS, Windows) es unir un contenedor \cmd{netshoot} al namespace de red del servicio a observar:
+
+\begin{lstlisting}[style=bash]
+# Ver 30 s de trafico Modbus que llega a OpenPLC, decodificado
+docker run --rm --net container:openplc nicolaka/netshoot \
+  tshark -i eth0 -a duration:30 -f "tcp port 502" -Y modbus
+
+# Guardar a pcap el trafico OPC UA del servidor Microsoft, para abrirlo en Wireshark
+docker run --rm --net container:opc-plc -v "$PWD/captures:/cap" nicolaka/netshoot \
+  tcpdump -i eth0 -w /cap/opcua.pcap "tcp port 50000"
+
+# Todo lo que entra y sale de Ignition (sondeo a todos los dispositivos)
+docker run --rm --net container:ignition -v "$PWD/captures:/cap" nicolaka/netshoot \
+  tcpdump -i eth0 -w /cap/ignition.pcap "not port 8088"
+\end{lstlisting}
+
+Los archivos aparecen en \cmd{captures/} del host y se abren con Wireshark. Ctrl+C detiene la captura.
+
+\subsection{Capturar desde el host (solo Linux)}
+
+\begin{lstlisting}[style=bash]
+docker network inspect ot-lab -f '{{.Id}}' | cut -c1-12      # -> br-<id>
+sudo wireshark -i br-<id> -k -f "tcp port 502 or tcp port 5020 or tcp port 50000 or tcp port 4840"
+\end{lstlisting}
+
+\subsection{Filtros útiles en Wireshark}
+
+\begin{table}[H]
+\centering\small
+\caption{Filtros de visualización de Wireshark para el laboratorio.}
+\label{tab:filtros}
+\begin{tabularx}{\textwidth}{L{5.6cm} X}
+\toprule
+\textbf{Filtro} & \textbf{Qué muestra} \\
+\midrule
+\cmd{mbtcp} & Modbus TCP completo (MBAP + PDU) \\
+\cmd{modbus.func\_code == 3} & Lecturas de holding registers \\
+\cmd{modbus.func\_code in \{5 6 15 16\}} & Todas las escrituras (coils y registros) \\
+\cmd{modbus.exception\_code} & Respuestas de excepción \\
+\cmd{opcua} & OPC UA (decodifica en claro solo con None/None) \\
+\cmd{opcua.transport.type == "HEL"} & Inicio de conexiones OPC UA \\
+\cmd{opcua.servicenodeid.numeric == 631} & Publish requests \\
+\cmd{mqtt} & MQTT; \cmd{mqtt.msgtype == 3} solo PUBLISH \\
+\cmd{s7comm} & Tráfico S7 (contra Conpot) \\
+\cmd{tcp.analysis.retransmission} & Retransmisiones (ejercicio WiFi) \\
+\cmd{ip.addr == 172.28.0.50} & Todo lo que toca a Ignition \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\menu{Statistics \ra{} Conversations} resume quién habla con quién; \menu{Statistics \ra{} I/O Graph} con el filtro \cmd{mbtcp} muestra el sondeo como una señal periódica: un SCADA leyendo cada segundo es una firma que conviene reconocer a simple vista. Si OPC UA en el 50000 no se decodifica: \menu{Analyze \ra{} Decode As \ra{} TCP port 50000 \ra{} OpcUa}.
+
+\subsection{Reconocimiento con nmap}
+
+\begin{lstlisting}[style=bash]
+# Inventario de la red del laboratorio
+docker run --rm --network ot-lab nicolaka/netshoot \
+  nmap -sT -p 502,5020,102,4840,50000,8080,1881,8088,1883 172.28.0.0/24
+
+# Scripts NSE especificos de ICS
+docker run --rm --network ot-lab nicolaka/netshoot \
+  nmap -p 502 --script modbus-discover 172.28.0.10 172.28.0.30
+\end{lstlisting}
+
+\begin{ok}
+nmap identifica nueve hosts activos y sus puertos; \cmd{modbus-discover} devuelve el \emph{slave ID} y, en OpenPLC, el identificador del dispositivo. A partir solo de puertos y banners debe poder clasificarse cada host por función (ejercicio~4 del capítulo~\ref{cap:ejercicios}).
+\end{ok}
+
+% -----------------------------------------------------------------------------
+\section{Práctica 5 --- Honeypot ICS con Conpot}
+\label{sec:prac-conpot}
+
+Conpot simula un Siemens S7-300 (S7comm en el 102, Modbus en el 502, SNMP en el 161 y web en el 80). Sus puertos están publicados en el host con prefijo 10 (10102, 10502, 10080, 10161) para no chocar con OpenPLC.
+
+\begin{lstlisting}[style=bash]
+docker run --rm --network ot-lab nicolaka/netshoot \
+  nmap -p 502,102 --script modbus-discover,s7-info 172.28.0.90
+docker compose logs -f conpot
+\end{lstlisting}
+
+\begin{ok}
+\cmd{s7-info} devuelve modelo, número de serie y versión de firmware ``del PLC''; el log de Conpot registra cada conexión con IP de origen, protocolo y función solicitada, exactamente como lo haría un IDS. Abrir \url{http://localhost:10080} muestra la web de diagnóstico falsa.
+\end{ok}
+
+Escribir después un registro Modbus en Conpot desde pymodbus (\ip{172.28.0.90}, puerto 502) y correlacionar la entrada del log con la captura: es el ejercicio~6.

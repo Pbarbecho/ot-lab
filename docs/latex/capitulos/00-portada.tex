@@ -1,0 +1,31 @@
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+{\Large\scshape Universidad de Cuenca\par}
+{\large Maestría en Ciencias de la Ingeniería\par}
+{\large Informática Industrial\par}
+\vspace{2.5cm}
+
+\begin{tikzpicture}[scale=0.9]
+  \node[caja,minimum width=30mm] (scada) at (0,2.2) {SCADA\\Ignition · FUXA};
+  \node[cajaverde,minimum width=30mm] (plc) at (-3.2,0) {PLC\\OpenPLC · Controllino};
+  \node[cajaverde,minimum width=30mm] (opc) at (3.2,0) {OPC UA\\OPC PLC · asyncua};
+  \node[cajanaranja,minimum width=30mm] (campo) at (0,-2.2) {Campo\\Modbus · RS485 · MQTT};
+  \draw[flecha] (scada) -- (plc); \draw[flecha] (scada) -- (opc);
+  \draw[flecha] (plc) -- (campo); \draw[flecha] (opc) -- (campo);
+  \node[cajaroja,minimum width=26mm] (wire) at (0,0) {Wireshark\\tshark · nmap};
+\end{tikzpicture}
+
+\vspace{1.5cm}
+{\Huge\bfseries Laboratorio de redes industriales\\[4pt] en Docker\par}
+\vspace{0.6cm}
+{\Large Modbus · OPC UA · MQTT · SCADA · análisis de tráfico\par}
+\vspace{0.4cm}
+{\large Guía de instalación, marco teórico y prácticas\par}
+\vfill
+{\large Pablo Barbecho\par}
+{\small \texttt{pablo.barbecho@ucuenca.edu.ec}\par}
+\vspace{0.5cm}
+{\large \today\par}
+\end{titlepage}
+\clearpage

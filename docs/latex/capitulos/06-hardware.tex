@@ -1,0 +1,180 @@
+\chapter{Práctica 6 --- Integración de los PLC físicos}
+\label{cap:hardware}
+
+Aquí el laboratorio deja de ser simulado. El Controllino y el ESP32 PLC~14 se programan con Arduino IDE (o con OpenPLC Editor) y hablan Modbus, así que encajan como dispositivos de nivel~1/0 que Ignition, FUXA y el OpenPLC de Docker pueden leer y escribir.
+
+\section{Equipos}
+
+\begin{table}[H]
+\centering\small
+\caption{Características de los dos PLC físicos y su papel en el laboratorio.}
+\label{tab:plcs}
+\begin{tabularx}{\textwidth}{L{2.4cm} X X}
+\toprule
+ & \textbf{Controllino} & \textbf{ESP32 PLC 14 (Industrial Shields)} \\
+\midrule
+MCU & ATmega2560 (MAXI/MEGA) o ATmega328 (MINI), 16~MHz & ESP32 doble núcleo 240~MHz \\
+Ethernet & Sí en MAXI/MEGA (W5100, 10/100). \textbf{MINI no tiene} & Sí (RJ45) \\
+Inalámbrico & No & WiFi + BLE \\
+Serie industrial & RS485 en MAXI/MEGA & RS485 half-duplex \\
+Otros & RTC, E/S 24~V, relés & I2C de expansión, RTC, E/S 24~V, 1 relé, entradas 0--10~V / 4--20~mA \\
+Rol en el lab & Esclavo Modbus TCP ``clásico'', cableado, lento y determinista & Esclavo Modbus TCP, pasarela RTU\ra{}TCP, publicador MQTT; comparar Ethernet frente a WiFi \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{nota}
+Si el Controllino es \textbf{MINI} (sin Ethernet ni RS485), conectarlo por USB y usarlo como esclavo Modbus RTU sobre serie; el host o el ESP32 hacen de pasarela. El resto del capítulo asume MAXI o MEGA.
+\end{nota}
+
+\section{Topología física y direccionamiento}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{fig4_cableado}
+  \caption{Conexiones físicas: alimentación, Ethernet, bus RS485 y USB de programación.}
+  \label{fig:cableado}
+\end{figure}
+
+\begin{enumerate}
+  \item Conectar la segunda NIC del host (\cmd{eth1}, USB-Ethernet), el Controllino y el ESP32 a un switch. Alimentar ambos PLC a 24~V desde la fuente, no por USB.
+  \item IPs estáticas: host \ip{192.168.10.1/24}, Controllino \ip{.11}, ESP32 \ip{.12}. Sin puerta de enlace en los PLC: no tienen por qué salir a ningún sitio.
+  \item Configurar la NIC del host y comprobar conectividad:
+\begin{lstlisting}[style=bash]
+# Linux
+sudo ip addr add 192.168.10.1/24 dev eth1 && sudo ip link set eth1 up
+# macOS: Ajustes -> Red -> adaptador USB -> Configurar IPv4: Manual, 192.168.10.1 / 255.255.255.0
+ping -c 3 192.168.10.11 && ping -c 3 192.168.10.12
+\end{lstlisting}
+  \item Si el switch es gestionable, configurar \emph{port mirroring} del puerto del Controllino hacia un puerto donde haya una tercera NIC de captura (\cmd{eth2}, sin IP). Wireshark verá el tráfico SCADA $\leftrightarrow$ PLC aunque no pase por el host: es la posición de un sensor pasivo de red OT.
+\end{enumerate}
+
+El segmento \ip{192.168.10.0/24} va en una NIC dedicada, separado de la red doméstica o de la universidad: eso ya es un ejercicio de segmentación.
+
+\section{Cómo llegan los contenedores a los PLC}
+\label{sec:nat-macvlan}
+
+\textbf{A) Bridge + NAT (por defecto; cualquier SO).} Los contenedores salen por NAT del host, así que Ignition, FUXA y OpenPLC alcanzan \ip{192.168.10.11:502} sin configurar nada. Limitación: los PLC no pueden iniciar conexiones hacia un contenedor salvo a través de un puerto publicado en el host (el ESP32 publica MQTT a \ip{192.168.10.1:1883}, que es el puerto publicado de Mosquitto). En Wireshark, todo el tráfico de los contenedores aparece con la IP del host.
+
+\textbf{B) macvlan (solo Linux nativo).} Cada contenedor recibe una IP y una MAC propias en \ip{192.168.10.0/24}; en Wireshark aparecen como equipos distintos y se puede hacer nmap ``desde fuera''.
+
+\begin{lstlisting}[style=yaml]
+networks:
+  ot-phys:
+    driver: macvlan
+    driver_opts:
+      parent: eth1
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24
+          ip_range: 192.168.10.128/25   # rango reservado a contenedores
+          gateway: 192.168.10.1
+\end{lstlisting}
+
+Añadir a \cmd{ignition}, \cmd{fuxa}, \cmd{node-red} y \cmd{openplc} una segunda red \cmd{ot-phys: \{ ipv4\_address: 192.168.10.150 \}} (y sucesivas). Con macvlan el host \emph{no} puede hablar con sus propios contenedores por \cmd{eth1}; hace falta una interfaz puente:
+
+\begin{lstlisting}[style=bash]
+sudo ip link add ot-shim link eth1 type macvlan mode bridge
+sudo ip addr add 192.168.10.2/32 dev ot-shim && sudo ip link set ot-shim up
+sudo ip route add 192.168.10.128/25 dev ot-shim
+\end{lstlisting}
+
+\section{Firmware: opción rápida con OpenPLC Editor}
+
+OpenPLC Editor compila un programa IEC 61131-3 y lo sube directamente a placas Arduino, incluidos Controllino MAXI/MEGA/MINI y ESP32, dejando la placa como esclavo Modbus (TCP y/o RTU) con las E/S mapeadas a \cmd{\%IX}, \cmd{\%QX}, \cmd{\%IW}, \cmd{\%QW}.
+
+\begin{enumerate}
+  \item Nuevo proyecto; escribir un ladder sencillo (p.\,ej. \cmd{\%QX0.0 := \%IX0.0}).
+  \item \menu{Transfer program to PLC}: \emph{Board} = Controllino MAXI o ESP32; pestaña \menu{Modbus}: habilitar TCP, IP \ip{192.168.10.11} (Controllino) o \ip{.12} (ESP32), puerto 502; en el ESP32 elegir Ethernet o WiFi (SSID/clave).
+  \item Compilar y subir. El dispositivo ya responde Modbus TCP.
+  \item En el OpenPLC de Docker (\url{http://localhost:8080}) \menu{Slave Devices \ra{} Add}: Generic Modbus TCP, IP del PLC físico, mapear sus registros. El PLC virtual controla ahora E/S reales. En Ignition, añadir ambos como dispositivos Modbus TCP igual que el simulador.
+\end{enumerate}
+
+Industrial Shields documenta el mapa de pines de sus placas; comprobar qué pines Arduino corresponden a I0.x/Q0.x antes de usarlos desde OpenPLC.
+
+\section{Firmware: opción con Arduino IDE (control total)}
+
+Instalar en Arduino IDE el paquete de placas \cmd{industrialshields-esp32} y la librería \textbf{Tools40} (clases \cmd{ModbusTCPSlave}, \cmd{ModbusTCPMaster}, \cmd{ModbusRTUSlave}, \cmd{ModbusRTUMaster}); para el Controllino, las placas Controllino y la librería \textbf{ArduinoModbus} (con ArduinoRS485).
+
+\textbf{ESP32 PLC 14 como esclavo Modbus TCP por Ethernet} (esqueleto; partir de \menu{File \ra{} Examples \ra{} Tools40} para el modelo exacto):
+
+\begin{lstlisting}[style=cpp]
+#include <Ethernet.h>
+#include <ModbusTCPSlave.h>
+
+byte mac[] = {0xDE,0xAD,0xBE,0xEF,0x00,0x12};
+IPAddress ip(192,168,10,12);
+ModbusTCPSlave modbus(502);
+
+bool     coils[4];
+bool     dinputs[4];
+uint16_t hregs[4];
+uint16_t iregs[4];
+
+void setup() {
+  Ethernet.begin(mac, ip);
+  modbus.begin();
+  modbus.setCoils(coils, 4);
+  modbus.setDiscreteInputs(dinputs, 4);
+  modbus.setHoldingRegisters(hregs, 4);
+  modbus.setInputRegisters(iregs, 4);
+}
+
+void loop() {
+  dinputs[0] = digitalRead(I0_0);
+  iregs[0]   = analogRead(I0_5);      // entrada analogica
+  digitalWrite(Q0_0, coils[0]);      // el SCADA escribe el coil 0 -> sale por Q0.0
+  modbus.update();
+}
+\end{lstlisting}
+
+\textbf{Controllino MAXI como esclavo Modbus TCP} (ArduinoModbus):
+
+\begin{lstlisting}[style=cpp]
+#include <Controllino.h>
+#include <SPI.h>
+#include <Ethernet.h>
+#include <ArduinoRS485.h>
+#include <ArduinoModbus.h>
+
+byte mac[] = {0xDE,0xAD,0xBE,0xEF,0x00,0x11};
+EthernetServer server(502);
+ModbusTCPServer modbusTCP;
+
+void setup() {
+  Ethernet.begin(mac, IPAddress(192,168,10,11));
+  server.begin();
+  modbusTCP.begin();
+  modbusTCP.configureCoils(0, 8);
+  modbusTCP.configureDiscreteInputs(0, 8);
+  modbusTCP.configureHoldingRegisters(0, 8);
+  pinMode(CONTROLLINO_D0, OUTPUT);
+  pinMode(CONTROLLINO_A0, INPUT);
+}
+
+void loop() {
+  EthernetClient client = server.available();
+  if (client) {
+    modbusTCP.accept(client);
+    while (client.connected()) {
+      modbusTCP.poll();
+      modbusTCP.discreteInputWrite(0, digitalRead(CONTROLLINO_A0));
+      digitalWrite(CONTROLLINO_D0, modbusTCP.coilRead(0));
+    }
+  }
+}
+\end{lstlisting}
+
+Comprobar desde el host: \cmd{mbpoll -m tcp -a 1 -t 0 -r 1 -c 4 192.168.10.11} (leer coils) y \cmd{mbpoll -m tcp -a 1 -t 0 -r 1 192.168.10.11 1} (escribir el coil~0): debe oírse el relé o verse el LED de salida.
+
+\section{Modbus RTU sobre RS485 entre los dos PLC}
+\label{sec:rtu}
+
+Cablear A $\leftrightarrow$ A, B $\leftrightarrow$ B y GND entre el RS485 del Controllino y el del ESP32, con terminación de 120~$\Omega$ en ambos extremos. Controllino como \textbf{esclavo RTU} (\cmd{ModbusRTUServer} de ArduinoModbus, 19200~8N1, ID~1); ESP32 como \textbf{maestro RTU} (\cmd{ModbusRTUMaster} de Tools40) que lee los registros del Controllino y los copia en sus propios \emph{holding registers} Modbus TCP. Desde Ignition se lee el Controllino ``a través'' del ESP32, que actúa de \textbf{pasarela RTU\ra{}TCP}, exactamente lo que hacen los gateways Moxa o Anybus en planta.
+
+Para analizar el bus serie: el adaptador USB-RS485 del host se conecta en paralelo al bus (A, B, GND) y se capturan los bytes crudos con \cmd{pymodbus} (\cmd{ModbusSerialClient}, \cmd{framer='rtu'}) o con un script que vuelque \cmd{serial.read()} en hexadecimal. Wireshark no lee serie directamente; se puede exponer el puerto por TCP con \cmd{socat} y decodificar como \cmd{mbrtu} con \menu{Decode As}.
+
+\section{MQTT desde el ESP32}
+\label{sec:mqtt-esp32}
+
+El broker Mosquitto ya está en el compose (\ip{172.28.0.60:1883}, publicado en el host). En el ESP32, con la librería \cmd{PubSubClient}, conectar a \ip{192.168.10.1:1883}, publicar cada segundo \cmd{ot/esp32/nivel} y suscribirse a \cmd{ot/esp32/cmd}. Node-RED (nodo \emph{mqtt in}) e Ignition (módulo MQTT Engine) lo consumen. Ejercicio de red: MQTT viaja en claro sobre TCP 1883; capturar, leer el payload, y después habilitar un listener TLS en el 8883 de Mosquitto (certificado autofirmado, \cmd{cafile}/\cmd{certfile}/\cmd{keyfile} en \cmd{mosquitto.conf} y republicar el puerto) para ver la diferencia. Cambiar el ESP32 de Ethernet a WiFi y comparar el \emph{jitter} en \menu{Statistics \ra{} I/O Graph} con el filtro \cmd{mqtt}.

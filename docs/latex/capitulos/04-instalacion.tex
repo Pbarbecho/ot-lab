@@ -1,0 +1,258 @@
+\chapter{Instalación y puesta en marcha}
+\label{cap:instalacion}
+
+Este capítulo lleva desde un equipo sin nada instalado hasta los nueve contenedores en marcha y verificados. Recoge además los cuatro problemas que aparecieron al desplegar el laboratorio en macOS y cómo se resolvieron, porque cada uno ilustra un concepto de Docker que conviene conocer.
+
+% -----------------------------------------------------------------------------
+\section{Requisitos}
+
+\begin{table}[H]
+\centering\small
+\caption{Requisitos de software y hardware.}
+\label{tab:requisitos}
+\begin{tabularx}{\textwidth}{L{5.2cm} L{2.6cm} X}
+\toprule
+\textbf{Herramienta} & \textbf{Dónde corre} & \textbf{Para qué} \\
+\midrule
+Docker Engine + Compose v2 (Linux) o Docker Desktop (macOS/Windows) & Host & Toda la infraestructura \\
+Wireshark & Host & Analizar capturas \\
+UaExpert & Host & Cliente OPC UA gráfico \\
+Python 3.10+ con \cmd{pymodbus} y \cmd{asyncua} (opcional) & Host & Scripts propios; todo puede hacerse también desde contenedores \\
+Arduino IDE 1.8.x/2.x + paquete \cmd{industrialshields-esp32} + placas Controllino & Host & Firmware de los PLC físicos \\
+OpenPLC Editor & Host & Programar en IEC 61131-3 y subir firmware Modbus a las placas \\
+Switch Ethernet, idealmente gestionable con \emph{port mirroring} (p.\,ej. TP-Link TL-SG105E) & Físico & Segmento OT real y captura entre PLC \\
+Adaptador USB-Ethernet (segunda NIC) y adaptador USB-RS485 & Físico & Segmento OT aislado y análisis de Modbus RTU \\
+Fuente 24~Vdc $\geq$ 2~A & Físico & Alimentar ambos PLC (no solo por USB) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Recursos mínimos del host: 8~GB de RAM (Ignition consume 1--2~GB; en macOS asigne al menos 6~GB a Docker Desktop), 15~GB de disco para imágenes y conexión a Internet para la primera descarga (la imagen de Ignition supera 1~GB).
+
+% -----------------------------------------------------------------------------
+\section{Elección de plataforma}
+\label{sec:plataforma}
+
+El laboratorio funciona en Linux, macOS y Windows, pero no de forma idéntica (sección~\ref{sec:docker}). En \textbf{Linux nativo} el bridge de Docker es una interfaz visible en Wireshark, se puede usar \cmd{network\_mode: host} y macvlan, y el host alcanza las IPs \ip{172.28.0.x}. En \textbf{macOS y Windows} Docker Desktop ejecuta los contenedores dentro de una VM: se trabaja por puertos publicados y se captura desde dentro con netshoot. Ambas vías cubren todas las prácticas; la de Linux ofrece más puntos de captura.
+
+\begin{nota}[Recomendación]
+Para un curso, la combinación más cómoda es Docker Desktop en el portátil de cada estudiante (macOS/Windows) para las prácticas de protocolos y SCADA, y un PC o VM Linux en el laboratorio físico, con la segunda NIC y el switch gestionable, para las prácticas de captura avanzada y hardware.
+\end{nota}
+
+% -----------------------------------------------------------------------------
+\section{Instalación de Docker}
+
+\subsection{macOS (Docker Desktop)}
+
+\begin{enumerate}
+  \item Descargar Docker Desktop desde \url{https://www.docker.com/products/docker-desktop/} eligiendo \emph{Apple Silicon} o \emph{Intel} según el equipo, e instalarlo arrastrándolo a Aplicaciones.
+  \item Abrirlo y aceptar el acuerdo de servicio. Esperar a que el icono de la barra de menús indique \emph{Docker Desktop is running}.
+  \item En \menu{Settings \ra{} Resources}: asignar al menos 6~GB de memoria y 4~CPU.
+  \item En \menu{Settings \ra{} General}: en Apple Silicon, activar \emph{Use Rosetta for x86\_64/amd64 emulation on Apple Silicon}. Acelera notablemente las dos imágenes que solo existen para \cmd{amd64} (OpenPLC y Conpot).
+  \item Verificar en un terminal:
+\begin{lstlisting}[style=bash]
+docker --version          # Docker version 2x.y
+docker compose version    # Docker Compose version v2.x
+docker run --rm hello-world
+\end{lstlisting}
+\end{enumerate}
+
+\subsection{Linux (Ubuntu/Debian)}
+
+\begin{lstlisting}[style=bash]
+# Repositorio oficial de Docker
+sudo apt-get update && sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+# Usar docker sin sudo (cerrar sesión y volver a entrar después)
+sudo usermod -aG docker $USER
+\end{lstlisting}
+
+\subsection{Windows}
+
+Docker Desktop con el backend WSL~2. El comportamiento es el mismo que en macOS (VM oculta, acceso por puertos publicados). Wireshark puede instalarse en Windows para abrir los \cmd{.pcap} generados con netshoot.
+
+% -----------------------------------------------------------------------------
+\section{Estructura del proyecto}
+\label{sec:estructura}
+
+La carpeta \lab{} contiene todo lo necesario. Si se parte de cero:
+
+\begin{lstlisting}[style=bash]
+mkdir -p ot-lab/{modbus,opcua,mosquitto,fuxa-data,nodered-data,captures,docs}
+cd ot-lab
+\end{lstlisting}
+
+\begin{lstlisting}[style=plain]
+ot-lab/
+|-- docker-compose.yml            # los 9 servicios (version macOS; Linux en .bak)
+|-- docker-compose.linux.yml.bak  # version original para Linux
+|-- README.md
+|-- modbus/server.json            # registros del esclavo Modbus simulado
+|-- opcua/Dockerfile              # imagen del servidor OPC UA en Python
+|-- opcua/server.py
+|-- mosquitto/mosquitto.conf      # broker MQTT sin autenticacion (laboratorio)
+|-- fuxa-data/  nodered-data/     # datos persistentes (bind mounts)
+|-- captures/                     # volcados .pcap generados con netshoot
+`-- docs/                         # esta guia, figuras y fuentes LaTeX
+\end{lstlisting}
+
+Los archivos completos están en el anexo~\ref{cap:anexos}. El \cmd{docker-compose.yml} define una red bridge \ip{172.28.0.0/24} con IP fija por servicio, un volumen con nombre para Ignition y nueve servicios cuyos puertos publicados se recogen en la tabla~\ref{tab:servicios}.
+
+\begin{table}[H]
+\centering\small
+\caption{Servicios del laboratorio, direcciones internas, puertos publicados y credenciales.}
+\label{tab:servicios}
+\begin{tabularx}{\textwidth}{L{1.9cm} L{2.1cm} L{2.6cm} X L{2.6cm}}
+\toprule
+\textbf{Servicio} & \textbf{IP interna} & \textbf{Puerto(s) host} & \textbf{Acceso} & \textbf{Credenciales} \\
+\midrule
+openplc    & 172.28.0.10 & 8080, 502   & \url{http://localhost:8080} · Modbus :502 & openplc / openplc \\
+opc-plc    & 172.28.0.20 & 50000       & \nolinkurl{opc.tcp://localhost:50000} & anónimo \\
+opcua-py   & 172.28.0.21 & 4840        & \nolinkurl{opc.tcp://localhost:4840/lab/} & anónimo \\
+modbus-sim & 172.28.0.30 & 5020        & Modbus TCP :5020 & --- \\
+ignition   & 172.28.0.50 & 8088        & \url{http://localhost:8088} & admin / lab1234! \\
+fuxa       & 172.28.0.51 & 1881        & \url{http://localhost:1881} & --- \\
+node-red   & 172.28.0.52 & 1880        & \url{http://localhost:1880} & --- \\
+mosquitto  & 172.28.0.60 & 1883        & MQTT :1883 & anónimo \\
+conpot     & 172.28.0.90 & 10502, 10102, 10080, 10161/udp & \url{http://localhost:10080} & --- \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\section{Arranque}
+\label{sec:arranque}
+
+\begin{lstlisting}[style=bash]
+cd ot-lab
+docker compose up -d          # descarga/construye imagenes y arranca los 9 servicios
+docker compose ps             # todos deben mostrar "Up" (Ignition tarda 1-3 min)
+docker compose logs -f ignition   # seguir un servicio; Ctrl+C para salir
+\end{lstlisting}
+
+La primera ejecución descarga unas 3~GB de imágenes y construye \cmd{opcua-py} desde su Dockerfile; tarda varios minutos. Las siguientes arrancan en segundos. La figura~\ref{fig:arranque} resume la secuencia de verificación.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=8mm and 6mm]
+  \node[caja,text width=34mm] (up) {\cmd{docker compose up -d}};
+  \node[caja,text width=34mm,right=of up] (ps) {\cmd{docker compose ps}};
+  \node[caja,fill=azulclaro,text width=34mm,right=of ps] (q) {¿Todos \emph{Up}?};
+  \node[cajaverde,text width=40mm,below=of q] (web) {Abrir webs (tabla~\ref{tab:servicios}) y probar Modbus / OPC UA};
+  \node[cajaroja,text width=44mm,below=14mm of up.south west,anchor=north west] (logs) {\cmd{docker compose logs --tail 40 <svc>}\\Ver sección~\ref{sec:fallos}};
+  \node[cajanaranja,text width=44mm,below=of logs] (fix) {Corregir archivo y\\\cmd{up -d --force-recreate <svc>}};
+  \draw[flecha] (up) -- (ps); \draw[flecha] (ps) -- (q);
+  \draw[flechav] (q) -- node[etiqueta,right] {sí} (web);
+  \draw[flechar] (q.south) -- ++(0,-4mm) -| node[etiqueta,pos=0.25,above] {Restarting / Exited} (logs.north);
+  \draw[flechan] (logs) -- (fix);
+  \draw[flechan] (fix.west) -- ++(-5mm,0) |- (up.west);
+\end{tikzpicture}
+\caption{Secuencia de arranque y verificación del laboratorio.}
+\label{fig:arranque}
+\end{figure}
+
+\subsection{Comprobaciones rápidas}
+
+\begin{lstlisting}[style=bash]
+# Estado (todos Up; node-red ademas "healthy")
+docker compose ps
+
+# Modbus: leer 3 holding registers del simulador -> [1234, 25, 72]
+docker run --rm --network ot-lab python:3.12-slim sh -c "pip -q install pymodbus && python -c \"
+from pymodbus.client import ModbusTcpClient
+c=ModbusTcpClient('172.28.0.30',port=5020); c.connect()
+print(c.read_holding_registers(0,count=3,slave=1).registers)\""
+
+# OPC UA: leer Tanque1.Nivel del servidor Python
+docker run --rm --network ot-lab python:3.12-slim sh -c "pip -q install asyncua && python -c \"
+import asyncio
+from asyncua import Client
+async def m():
+    async with Client('opc.tcp://172.28.0.21:4840/lab/') as c:
+        n=await c.nodes.root.get_child(['0:Objects','2:Tanque1','2:Nivel']); print(await n.read_value())
+asyncio.run(m())\""
+
+# Honeypot: la web falsa de Conpot responde
+curl -s http://localhost:10080 | head -5
+\end{lstlisting}
+
+\begin{ok}
+\cmd{docker compose ps} muestra los nueve contenedores en estado \emph{Up}; la lectura Modbus devuelve \cmd{[1234, 25, 72]}; la lectura OPC UA devuelve un número entre 20 y 80; \url{http://localhost:8088} muestra la pantalla de bienvenida de Ignition.
+\end{ok}
+
+% -----------------------------------------------------------------------------
+\section{Primer acceso a Ignition}
+\label{sec:ignition-primer}
+
+Al abrir \url{http://localhost:8088} por primera vez, Ignition ya tiene el usuario \cmd{admin} con la contraseña del compose y ha aceptado el EULA por las variables de entorno. Aparece el diálogo \menu{Enable Quick Start}, que ofrece crear una aplicación de ejemplo con un simulador de dispositivos interno, tags de muestra, historiador y diario de alarmas.
+
+\begin{aviso}[{Elegir ``No thanks, I'd like to start from scratch''}]
+El Quick Start genera conexiones y tráfico internos que no pasan por la red \lab{} y confunden las capturas. El objetivo del laboratorio es que cada conexión que aparezca en Wireshark la haya creado el estudiante: partir de un Gateway vacío. Si se quiere ver la demo más adelante, se activa desde \menu{Config \ra{} System \ra{} Quick Start}.
+\end{aviso}
+
+Tras entrar, la cabecera muestra el contador del modo trial (\cmd{Trial Mode 1:59:xx}). Cuando llegue a cero, los módulos se detienen y aparece el botón \menu{Reset Trial}; pulsarlo devuelve otras 2~horas (capítulo~\ref{cap:licencias}). La configuración de dispositivos y OPC UA se describe en la sección~\ref{sec:prac-ignition}.
+
+% -----------------------------------------------------------------------------
+\section{Problemas encontrados en la puesta en marcha y su solución}
+\label{sec:fallos}
+
+Al desplegar el laboratorio en un Mac aparecieron cuatro fallos. Se documentan porque volverán a aparecer en cualquier equipo nuevo y porque cada uno enseña algo sobre cómo funcionan las imágenes.
+
+\subsection{Imágenes solo \cmd{amd64} en Apple Silicon}
+
+\textbf{Síntoma.} \cmd{exec format error} o contenedor que se reinicia sin logs útiles. \textbf{Causa.} \cmd{tuttas/openplc\_v3} y \cmd{honeynet/conpot} solo publican variante \cmd{linux/amd64} (se comprobó en el manifiesto de Docker Hub); las otras siete imágenes son multi-arquitectura. \textbf{Solución.} Añadir \cmd{platform: linux/amd64} a esos dos servicios y activar Rosetta en Docker Desktop. En un PC Intel la línea es inocua.
+
+\subsection{Conpot: \cmd{exec: "conpot": executable file not found in \$PATH}}
+
+\textbf{Síntoma.} \cmd{docker compose up} falla al crear el contenedor con ese mensaje. \textbf{Causa.} La guía original usaba \cmd{command: conpot --template default ...}. Al inspeccionar la configuración de la imagen \cmd{honeynet/conpot:latest} se vio que \emph{no} define \cmd{ENTRYPOINT}, que su \cmd{CMD} es la ruta completa \cmd{/home/conpot/.local/bin/conpot ...} y que ese directorio no está en el \cmd{PATH}. Al sobrescribir \cmd{command}, Docker intentó ejecutar el nombre \cmd{conpot} y no lo encontró. Además el \cmd{CMD} original lleva \cmd{-f} (\emph{foreground}); sin él el proceso se demoniza y el contenedor termina. \textbf{Solución.}
+
+\begin{lstlisting}[style=yaml]
+    command: ["/home/conpot/.local/bin/conpot", "--template", "default",
+              "--logfile", "/var/log/conpot/conpot.log", "-f", "--temp_dir", "/tmp"]
+\end{lstlisting}
+
+\textbf{Lección.} \cmd{command} sustituye al \cmd{CMD} de la imagen y se concatena al \cmd{ENTRYPOINT} si existe. Antes de sobrescribirlo conviene ver qué trae la imagen: \cmd{docker inspect <imagen> --format '\{\{.Config.Entrypoint\}\} \{\{.Config.Cmd\}\}'}.
+
+\subsection{modbus-sim: \cmd{KeyError: 'logging'}}
+
+\textbf{Síntoma.} Contenedor en \emph{Restarting}; el log muestra un \emph{traceback} de Python en \cmd{CONFIG["server"]["logging"]}. \textbf{Causa.} La imagen \cmd{oitc/modbus-server} cambió el esquema de su archivo de configuración: ahora exige las secciones \cmd{server.logging}, \cmd{persistence} y \cmd{metrics}, y eliminó \cmd{zeroMode}. El JSON de la guía original correspondía a una versión anterior. Al revisar el esquema se detectó un segundo problema latente: las claves de los registros son \textbf{offsets de protocolo} (0-based), de modo que \cmd{"40001": 1234} colocaba el valor en el offset 40001 y la lectura del offset~0 que propone la práctica habría devuelto ceros. \textbf{Solución.} Reescribir \cmd{modbus/server.json} con el esquema actual y claves \cmd{"0"}, \cmd{"1"}, \cmd{"2"} (anexo~\ref{sec:anexo-modbus}). \textbf{Lección.} Fijar versiones de imagen (\cmd{oitc/modbus-server:1.4.0} en lugar de \cmd{latest}) evita que un laboratorio deje de funcionar de un semestre a otro; y la notación Modbus 4xxxx frente a offsets 0-based es una trampa real (sección~\ref{sec:modbus}).
+
+\subsection{Ignition: \cmd{cp: cannot stat '.../data/gateway.xml\_clean'}}
+
+\textbf{Síntoma.} Contenedor en \emph{Restarting}; el log repite ``Creating gateway.xml'' y el error de \cmd{cp}. \textbf{Causa.} El compose montaba la carpeta vacía \cmd{./ignition-data} como \emph{bind mount} sobre \cmd{/usr/local/bin/ignition/data}, ocultando los archivos semilla que la imagen trae en ese directorio (sección~\ref{sec:volumenes}). El script de arranque busca \cmd{gateway.xml\_clean} para generar la configuración inicial y no lo encuentra. \textbf{Solución.} Usar un volumen con nombre, al que Docker copia el contenido de la imagen en el primer arranque:
+
+\begin{lstlisting}[style=yaml]
+volumes:
+  ignition-data:
+services:
+  ignition:
+    volumes:
+      - ignition-data:/usr/local/bin/ignition/data
+\end{lstlisting}
+
+Los datos quedan en el volumen \cmd{ot-lab\_ignition-data} (\cmd{docker volume ls}); para copia de seguridad: \cmd{docker run --rm -v ot-lab\_ignition-data:/d -v \$PWD:/b alpine tar czf /b/ignition-backup.tgz -C /d .}.
+
+% -----------------------------------------------------------------------------
+\section{Operación diaria}
+
+\begin{lstlisting}[style=bash]
+docker compose stop                    # detener, conservando contenedores
+docker compose start                   # reanudar
+docker compose down                    # eliminar contenedores y red (volumenes y bind mounts persisten)
+docker compose down -v                 # ADEMAS borra el volumen de Ignition (empezar de cero)
+docker compose up -d --build opcua-py  # reconstruir tras editar opcua/server.py
+docker compose restart fuxa            # reiniciar un servicio
+docker compose logs --tail 50 conpot   # ultimas lineas de log
+docker stats                           # CPU y memoria por contenedor
+docker compose pull && docker compose up -d   # actualizar imagenes (riesgo: cambios de esquema)
+\end{lstlisting}
+
+\begin{aviso}[Puertos en el host]
+Nada más debe escuchar en 502, 1880, 1881, 1883, 4840, 5020, 8080, 8088 ni 50000 del host. Si un puerto está ocupado (\cmd{lsof -i :8080} en macOS/Linux), cambiar el lado izquierdo del mapeo en el compose, p.\,ej. \cmd{"8081:8080"}.
+\end{aviso}

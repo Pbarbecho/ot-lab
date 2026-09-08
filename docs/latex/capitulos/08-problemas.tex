@@ -1,0 +1,35 @@
+\chapter{Problemas frecuentes}
+\label{cap:problemas}
+
+Los cuatro fallos de la puesta en marcha (Conpot, \cmd{modbus-sim}, Ignition, imágenes \cmd{amd64}) se describen con detalle en la sección~\ref{sec:fallos}. Esta lista recoge el resto de situaciones habituales.
+
+\begin{longtable}{L{4.6cm} L{10.8cm}}
+\caption{Problemas frecuentes y solución.}\label{tab:problemas}\\
+\toprule
+\textbf{Síntoma} & \textbf{Causa y solución} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Síntoma} & \textbf{Causa y solución} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Un contenedor queda en \emph{Restarting} & Ver su log: \cmd{docker compose logs --tail 40 <servicio>}. Casi siempre es un archivo de configuración montado con formato incorrecto o un cambio de esquema tras \cmd{pull}. Fijar la etiqueta de versión de la imagen. \\
+Puerto 502 ocupado o requiere privilegios & En Linux, mapear \cmd{"1502:502"} si no se quiere correr Docker como root o algo ya escucha en 502. En macOS Docker Desktop publica puertos bajos sin problema. \\
+\cmd{exec format error} & Imagen \cmd{amd64} en host ARM. Añadir \cmd{platform: linux/amd64} o construir la imagen localmente. \\
+Ignition muy lento en Apple Silicon & La imagen de Ignition es multi-arquitectura y corre nativa; la lentitud viene de memoria escasa. Asignar $\geq$6~GB a Docker Desktop. OpenPLC y Conpot sí van emulados: activar Rosetta. \\
+UaExpert no conecta a \cmd{opc-plc} & El certificado del servidor debe estar en \emph{Trusted} en UaExpert; con \cmd{--autoaccept} el servidor acepta el del cliente, pero el cliente debe aceptar el del servidor. \\
+Ignition no ve los contenedores & Usar las IPs de la red \lab{} (\ip{172.28.0.x}), no \cmd{localhost}: Ignition corre dentro de Docker. \\
+Ignition no ve los PLC físicos & En modo NAT (opción A) debe alcanzarlos por la IP real (\ip{192.168.10.x}); comprobar con \cmd{docker run --rm --network ot-lab nicolaka/netshoot ping 192.168.10.11}. \\
+Módulos de Ignition detenidos, HMI congelada & Ha expirado el trial de 2~h. Pulsar \menu{Reset Trial} en la cabecera del Gateway. \\
+Wireshark no decodifica OPC UA & \menu{Analyze \ra{} Decode As \ra{} TCP port 4840/50000 \ra{} OpcUa}. \\
+Wireshark no muestra la interfaz \cmd{br-xxxx} & Solo existe en Linux nativo. En macOS/Windows capturar con netshoot dentro de la red Docker. \\
+\cmd{netshoot} no captura nada & Verificar que el nombre en \cmd{--net container:<nombre>} coincide con \cmd{container\_name} y que hay tráfico (un sondeo activo desde Ignition u OpenPLC). \\
+El Controllino responde a ping pero no a Modbus & El W5100 admite solo 4 sockets simultáneos; cerrar clientes (mbpoll, Ignition, FUXA cuentan). Ignition abre varias conexiones por dispositivo: limitar a 1 en la configuración del dispositivo. \\
+El ESP32 se reinicia al recibir tráfico & Alimentación insuficiente por USB. Alimentarlo a 24~V. \\
+macvlan no funciona & Solo en Linux nativo con NIC física cableada (no en Docker Desktop, no sobre WiFi, que suele filtrar MAC ajenas). Usar la opción A (NAT). \\
+RS485 con datos corruptos & Revisar polaridad A/B, GND común y activar la terminación de 120~$\Omega$ en ambos extremos (el ESP32 PLC~14 y el Controllino tienen jumper o interruptor para ello). \\
+Node-RED sin permisos sobre \cmd{nodered-data} (Linux) & El contenedor corre como uid 1000. \cmd{sudo chown -R 1000:1000 nodered-data}. \\
+\cmd{docker compose pull} rompe algo que funcionaba & Una imagen \cmd{latest} cambió. Volver a la versión anterior fijando la etiqueta o restaurar \cmd{docker-compose.linux.yml.bak}. \\
+\end{longtable}

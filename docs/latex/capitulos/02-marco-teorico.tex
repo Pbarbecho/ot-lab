@@ -1,0 +1,367 @@
+\chapter{Marco teórico}
+\label{cap:teoria}
+
+Este capítulo describe las tecnologías y herramientas que componen el laboratorio. Se agrupan siguiendo la pirámide de automatización: primero el modelo de referencia, luego la plataforma de contenedores que lo aloja, después los tres protocolos (Modbus, OPC~UA, MQTT), las herramientas de control y supervisión, las de análisis y seguridad y, por último, el hardware físico.
+
+% -----------------------------------------------------------------------------
+\section{Redes industriales y la pirámide de automatización}
+\label{sec:piramide}
+
+El modelo de referencia más usado para describir una planta es la \emph{pirámide de automatización} (ISA-95 / modelo de Purdue), que organiza los sistemas en niveles según su función y su horizonte temporal (figura~\ref{fig:niveles}). El \textbf{nivel~0} son sensores y actuadores; el \textbf{nivel~1}, los controladores (PLC, RTU) que ejecutan lazos en milisegundos; el \textbf{nivel~2}, la supervisión (SCADA/HMI, historiadores) que sondea a los controladores en el orden de segundos; el \textbf{nivel~3}, la gestión de operaciones (MES); y el \textbf{nivel~4}, los sistemas corporativos (ERP). Entre los niveles 3 y 4 la práctica moderna inserta una \emph{DMZ industrial} (nivel~3.5) que rompe la conectividad directa entre la red de planta (OT) y la red de empresa (IT).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{fig2_niveles}
+  \caption{Niveles de la pirámide de automatización y herramienta del laboratorio que ocupa cada uno.}
+  \label{fig:niveles}
+\end{figure}
+
+Las redes OT difieren de las IT en varios aspectos que condicionan todo el laboratorio (tabla~\ref{tab:itot}). La prioridad es la disponibilidad y el determinismo, no la confidencialidad; los equipos viven décadas y rara vez se parchean; los protocolos nacieron sin autenticación porque asumían un cable aislado. Por eso el análisis de tráfico es tan revelador en OT: casi todo viaja en claro y es interpretable.
+
+\begin{table}[H]
+\centering\small
+\caption{Diferencias entre redes IT y OT relevantes para el laboratorio.}
+\label{tab:itot}
+\begin{tabularx}{\textwidth}{L{3.2cm} X X}
+\toprule
+\textbf{Aspecto} & \textbf{Red IT} & \textbf{Red OT} \\
+\midrule
+Prioridad & Confidencialidad, integridad & Disponibilidad, seguridad física, determinismo \\
+Patrón de tráfico & Ráfagas, cliente--servidor variado & Sondeo periódico (\emph{polling}) muy regular \\
+Ciclo de vida & 3--5 años & 15--25 años \\
+Autenticación & Habitual (TLS, Kerberos) & Ausente en Modbus, S7, EtherNet/IP clásico; opcional en OPC UA y MQTT \\
+Latencia tolerable & Cientos de ms & De 1~ms (control de movimiento) a 1~s (supervisión) \\
+Consecuencia de un fallo & Pérdida de datos & Parada de planta, daño físico \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\section{Contenedores: Docker y Docker Compose}
+\label{sec:docker}
+
+\subsection{Conceptos}
+
+Un \textbf{contenedor} es un proceso aislado del resto del sistema mediante \emph{namespaces} (PID, red, sistema de archivos) y \emph{cgroups} (límites de CPU y memoria) del kernel Linux. A diferencia de una máquina virtual no lleva su propio kernel, por lo que arranca en milisegundos y consume solo la memoria de la aplicación. Una \textbf{imagen} es la plantilla inmutable, construida por capas a partir de un \cmd{Dockerfile}, de la que se instancian contenedores. Un \textbf{registro} (Docker Hub, \cmd{mcr.microsoft.com}) almacena y distribuye imágenes.
+
+\textbf{Docker Compose} describe en un archivo YAML un conjunto de servicios, redes y volúmenes y los gestiona como una unidad (\cmd{docker compose up/down/ps/logs}). En este laboratorio, \cmd{docker-compose.yml} define nueve servicios sobre una red común.
+
+\subsection{Redes}
+
+Docker crea por defecto redes de tipo \emph{bridge}: un conmutador virtual (en Linux, una interfaz \cmd{br-<id>}) al que se conecta la interfaz \cmd{eth0} de cada contenedor. Los contenedores de la misma red se ven entre sí por IP y por nombre de servicio (Docker incluye un DNS interno). Para que el host o el exterior alcancen un servicio se \emph{publica} un puerto (\cmd{"8088:8088"}), lo que instala una regla NAT del puerto del host al del contenedor. En el laboratorio asignamos IPs fijas (\cmd{ipv4\_address}) en la subred \ip{172.28.0.0/24} para que las capturas y los escaneos sean legibles y repetibles.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=6mm]
+  % Linux
+  \node[cajagris,minimum width=62mm,minimum height=56mm,anchor=north west] (hostL) at (0,0) {};
+  \node[font=\small\bfseries,anchor=north west] at ($(hostL.north west)+(2mm,-1mm)$) {Host Linux};
+  \node[caja,minimum width=50mm] (brL) at ($(hostL.north)+(0,-13mm)$) {bridge \cmd{br-xxxx} 172.28.0.1};
+  \node[cajaverde,minimum width=14mm,font=\scriptsize] (c1) at ($(brL.south)+(-18mm,-11mm)$) {openplc\\.10};
+  \node[cajaverde,minimum width=14mm,font=\scriptsize] (c2) at ($(brL.south)+(0,-11mm)$) {ignition\\.50};
+  \node[cajaverde,minimum width=14mm,font=\scriptsize] (c3) at ($(brL.south)+(18mm,-11mm)$) {modbus-sim\\.30};
+  \foreach \c in {c1,c2,c3} \draw[thick,azul] (\c.north) -- (brL.south -| \c.north);
+  \node[cajaroja,text width=50mm,font=\scriptsize] (wsL) at ($(hostL.south)+(0,7mm)$) {Wireshark ve \cmd{br-xxxx} directamente};
+  % macOS
+  \node[cajagris,minimum width=62mm,minimum height=56mm,anchor=north west] (hostM) at (7.6,0) {};
+  \node[font=\small\bfseries,anchor=north west] at ($(hostM.north west)+(2mm,-1mm)$) {Host macOS / Windows};
+  \node[caja,draw=gris,dashed,minimum width=54mm,minimum height=30mm] (vm) at ($(hostM.north)+(0,-22mm)$) {};
+  \node[font=\scriptsize,anchor=north west,gris] at ($(vm.north west)+(1mm,-0.5mm)$) {VM Linux oculta (Docker Desktop)};
+  \node[caja,minimum width=44mm,font=\scriptsize] (brM) at ($(vm.north)+(0,-9mm)$) {bridge 172.28.0.0/24};
+  \node[cajaverde,minimum width=12mm,font=\scriptsize] (m1) at ($(brM.south)+(-15mm,-8mm)$) {.10};
+  \node[cajaverde,minimum width=12mm,font=\scriptsize] (m2) at ($(brM.south)+(0,-8mm)$) {.50};
+  \node[cajaverde,minimum width=12mm,font=\scriptsize] (m3) at ($(brM.south)+(15mm,-8mm)$) {.30};
+  \foreach \c in {m1,m2,m3} \draw[thick,azul] (\c.north) -- (brM.south -| \c.north);
+  \node[cajanaranja,text width=54mm,font=\scriptsize] (natM) at ($(hostM.south)+(0,8mm)$) {Solo \cmd{localhost:<puerto>}; 172.28.0.x no es alcanzable desde el host};
+  \draw[flechan] (natM.north) -- (vm.south);
+\end{tikzpicture}
+\caption{Red bridge de Docker en Linux frente a Docker Desktop (macOS/Windows). En Linux el bridge es una interfaz real del host; en macOS vive dentro de una máquina virtual y solo se accede por los puertos publicados.}
+\label{fig:dockernet}
+\end{figure}
+
+\begin{aviso}[Implicación para macOS y Windows]
+En Docker Desktop la red \ip{172.28.0.x} no es alcanzable desde el host y no existe una interfaz \cmd{br-xxxx} que Wireshark pueda abrir. Las capturas se hacen \emph{dentro} de la red Docker con un contenedor auxiliar (\cmd{netshoot}, sección~\ref{sec:netshoot}) o en el segmento físico. Entre contenedores las IPs fijas funcionan con normalidad.
+\end{aviso}
+
+\subsection{Volúmenes: bind mounts frente a volúmenes con nombre}
+\label{sec:volumenes}
+
+El sistema de archivos de un contenedor es efímero. Para persistir datos hay dos mecanismos que se comportan de forma distinta al arrancar sobre un directorio vacío, y esa diferencia fue la causa de uno de los fallos de la puesta en marcha (sección~\ref{sec:fallos}):
+
+\begin{itemize}
+  \item \textbf{Bind mount} (\cmd{./carpeta:/ruta}): monta una carpeta del host sobre la ruta del contenedor. Lo que hubiera en la imagen en esa ruta queda \emph{oculto}; si la carpeta del host está vacía, el contenedor ve un directorio vacío.
+  \item \textbf{Volumen con nombre} (\cmd{nombre:/ruta}): gestionado por Docker. La primera vez que se monta vacío, Docker \emph{copia} en él el contenido que la imagen tenía en esa ruta. Es el mecanismo que esperan imágenes como Ignition, que traen un directorio \cmd{data/} preconfigurado.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+  \node[caja,minimum width=34mm] (img) at (0,0) {Imagen\\\cmd{/data} con archivos};
+  \node[cajaroja,minimum width=40mm] (bind) at (5.2,1.1) {Bind mount vacío\\\cmd{/data} = \{\} (oculta la imagen)};
+  \node[cajaverde,minimum width=40mm] (vol) at (5.2,-1.1) {Volumen con nombre vacío\\\cmd{/data} = copia de la imagen};
+  \draw[flechar] (img.east) -- (bind.west) node[etiqueta,midway,above] {sin copia};
+  \draw[flechav] (img.east) -- (vol.west) node[etiqueta,midway,below] {copia inicial};
+\end{tikzpicture}
+\caption{Comportamiento de Docker al montar un directorio vacío sobre una ruta que la imagen ya rellenaba.}
+\label{fig:volumenes}
+\end{figure}
+
+\subsection{Arquitecturas de CPU e imágenes multi-arquitectura}
+
+Una imagen contiene binarios compilados para una arquitectura. Los Mac con Apple Silicon (y la Raspberry Pi) son \cmd{arm64}; la mayoría de los PC, \cmd{amd64}. Muchas imágenes publican un \emph{manifiesto multi-arquitectura} y Docker escoge la variante adecuada. Cuando solo existe \cmd{amd64} (caso de \cmd{tuttas/openplc\_v3} y \cmd{honeynet/conpot}), en un Mac ARM hay que indicarlo con \cmd{platform: linux/amd64}: Docker Desktop la ejecuta mediante emulación (QEMU o Rosetta~2), más lenta pero funcional. Sin esa línea el error es \cmd{exec format error}.
+
+% -----------------------------------------------------------------------------
+\section{Modbus}
+\label{sec:modbus}
+
+\subsection{Origen y modelo}
+
+Modbus (Modicon, 1979) es el protocolo industrial más extendido por su simplicidad y por ser de especificación abierta. Sigue un modelo \textbf{maestro--esclavo} (en la terminología actual, cliente--servidor): el maestro envía una petición y un único esclavo responde; los esclavos nunca hablan espontáneamente. Existen dos variantes principales:
+
+\begin{itemize}
+  \item \textbf{Modbus RTU}: sobre línea serie (habitualmente RS485 half-duplex, 9600--115200 bps, 8N1). Un bus multipunto con hasta 247 esclavos identificados por su \emph{unit ID}. La trama se delimita por silencios de al menos 3,5~caracteres y termina con un CRC-16.
+  \item \textbf{Modbus TCP}: la misma PDU encapsulada en TCP (puerto 502) con una cabecera adicional, la \textbf{MBAP} (\emph{Modbus Application Protocol header}). Sin CRC (lo aporta TCP) y con un \emph{transaction ID} que permite peticiones concurrentes.
+\end{itemize}
+
+\subsection{Modelo de datos}
+
+Un esclavo expone cuatro tablas (tabla~\ref{tab:modbustablas}). Las direcciones de protocolo van de 0 a 65535 en cada tabla. Históricamente se usaba una notación con prefijo (\emph{coils} 0xxxx, entradas discretas 1xxxx, registros de entrada 3xxxx, \emph{holding} 4xxxx, con base~1), de modo que ``40001'' significa \emph{holding register} de offset~0. Esta doble notación es fuente permanente de confusión y apareció en la puesta en marcha del simulador (sección~\ref{sec:fallos}): el archivo de configuración esperaba offsets de protocolo, no direcciones 4xxxx.
+
+\begin{table}[H]
+\centering\small
+\caption{Tablas de datos Modbus y códigos de función asociados.}
+\label{tab:modbustablas}
+\begin{tabularx}{\textwidth}{L{3.4cm} L{1.5cm} L{1.6cm} L{2.6cm} X}
+\toprule
+\textbf{Tabla} & \textbf{Tamaño} & \textbf{Acceso} & \textbf{Notación 1-based} & \textbf{Funciones (FC)} \\
+\midrule
+Coils (salidas discretas) & 1 bit & R/W & 00001--09999 & 01 leer · 05 escribir uno · 15 escribir varios \\
+Discrete inputs & 1 bit & R & 10001--19999 & 02 leer \\
+Input registers & 16 bit & R & 30001--39999 & 04 leer \\
+Holding registers & 16 bit & R/W & 40001--49999 & 03 leer · 06 escribir uno · 16 escribir varios · 23 leer/escribir \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Trama Modbus TCP}
+
+La figura~\ref{fig:mbap} muestra la estructura de una petición Modbus TCP. La MBAP ocupa 7 bytes: \emph{transaction ID} (2), \emph{protocol ID} (2, siempre 0), \emph{length} (2, bytes que siguen) y \emph{unit ID} (1, dirección del esclavo, relevante en pasarelas TCP\ra{}RTU). Le sigue la PDU: código de función (1) y datos. En Wireshark el disector \cmd{mbtcp} muestra la MBAP y \cmd{modbus} la PDU, con los filtros \cmd{modbus.func\_code} y \cmd{modbus.exception\_code}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[start chain=going right,node distance=0pt]
+  \node[byte,fill=azulclaro,minimum width=19mm,on chain] (t) {Transaction ID\\2 bytes};
+  \node[byte,fill=azulclaro,minimum width=17mm,on chain] (p) {Protocol ID\\2 bytes = 0};
+  \node[byte,fill=azulclaro,minimum width=15mm,on chain] (l) {Length\\2 bytes};
+  \node[byte,fill=azulclaro,minimum width=14mm,on chain] (u) {Unit ID\\1 byte};
+  \node[byte,fill=verdeclaro,minimum width=17mm,on chain] (f) {Function\\1 byte};
+  \node[byte,fill=verdeclaro,minimum width=20mm,on chain] (a) {Start addr.\\2 bytes};
+  \node[byte,fill=verdeclaro,minimum width=18mm,on chain] (q) {Quantity\\2 bytes};
+  \draw[decorate,decoration={brace,amplitude=4pt,mirror},azul] (t.south west) -- (u.south east) node[midway,below=5pt,font=\scriptsize,azul] {MBAP (7 bytes)};
+  \draw[decorate,decoration={brace,amplitude=4pt,mirror},verde] (f.south west) -- (q.south east) node[midway,below=5pt,font=\scriptsize,verde] {PDU (FC 03: leer holding registers)};
+  \node[font=\scriptsize,above=3pt of t.north west,anchor=south west] {Ejemplo: \cmd{00 01 | 00 00 | 00 06 | 01 | 03 | 00 00 | 00 03} $\Rightarrow$ leer 3 registros desde el offset 0 del esclavo 1};
+\end{tikzpicture}
+\caption{Estructura de una petición Modbus TCP: cabecera MBAP y PDU.}
+\label{fig:mbap}
+\end{figure}
+
+Si la petición no puede atenderse, el esclavo responde con el código de función más 0x80 y un \emph{exception code} (01 función ilegal, 02 dirección ilegal, 03 valor ilegal, 04 fallo del dispositivo). Provocar una excepción leyendo un registro inexistente es uno de los primeros ejercicios de la guía.
+
+\subsection{Seguridad}
+
+Modbus carece de autenticación, autorización y cifrado: cualquier equipo con acceso a la red puede leer y escribir cualquier registro. Existe una variante Modbus/TCP Security (puerto 802, sobre TLS con certificados) con adopción muy escasa. En la práctica la protección viene de la red: segmentación, listas de acceso que solo permitan al SCADA hablar con los PLC y monitorización pasiva que alerte de escrituras (FC 05/06/15/16) desde orígenes no autorizados.
+
+% -----------------------------------------------------------------------------
+\section{OPC UA}
+\label{sec:opcua}
+
+\subsection{Qué resuelve}
+
+OPC UA (IEC 62541, 2008) sustituye al OPC clásico basado en DCOM de Windows por un estándar independiente de plataforma para el intercambio de datos y metadatos en automatización. Frente a Modbus, aporta tres cosas: un \textbf{modelo de información} rico (los datos tienen nombre, tipo, unidades, jerarquía, no son registros anónimos), \textbf{servicios} de alto nivel (lectura, escritura, suscripción, métodos, alarmas, histórico) y \textbf{seguridad} integrada (certificados X.509, firma y cifrado, autenticación de usuario).
+
+\subsection{Modelo de información}
+
+Un servidor expone un \emph{espacio de direcciones} formado por nodos (objetos, variables, métodos, tipos) conectados por referencias. Cada nodo tiene un \emph{NodeId} (\cmd{ns=2;i=1001} o \cmd{ns=2;s=Tanque1.Nivel}) dentro de un \emph{namespace}. Los clientes navegan desde \cmd{Objects} igual que por un árbol de carpetas; UaExpert e Ignition lo hacen gráficamente. El servidor Python del laboratorio crea el objeto \cmd{Tanque1} con las variables \cmd{Nivel}, \cmd{Temperatura} y \cmd{Valvula} en el namespace \cmd{http://lab.local}.
+
+\subsection{Pila de comunicaciones y seguridad}
+
+La figura~\ref{fig:opcuapila} muestra la pila del transporte binario \cmd{opc.tcp} (puerto habitual 4840). Sobre TCP se establece un \textbf{SecureChannel} negociando una \emph{política de seguridad} (\cmd{None}, \cmd{Basic256Sha256}, \cmd{Aes256\_Sha256\_RsaPss}) y un \emph{modo} (\cmd{None}, \cmd{Sign}, \cmd{SignAndEncrypt}) mediante intercambio de certificados de aplicación. Dentro del canal se abre una \textbf{Session} donde el usuario se autentica (anónimo, usuario/contraseña o certificado). Solo entonces circulan los servicios (\cmd{Browse}, \cmd{Read}, \cmd{Write}, \cmd{CreateSubscription}, \cmd{Publish}).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+  \foreach \i/\txt/\col in {0/{Modelo de información: nodos, tipos, referencias (Tanque1.Nivel)}/verdeclaro,
+                            1/{Servicios: Browse · Read · Write · Subscription/Publish · Call}/verdeclaro,
+                            2/{Session: autenticación de usuario (anónimo, usuario/clave, certificado)}/azulclaro,
+                            3/{SecureChannel: política (None, Basic256Sha256) + modo (None, Sign, SignAndEncrypt)}/azulclaro,
+                            4/{UA TCP: Hello/Acknowledge, chunking de mensajes}/grisclaro,
+                            5/{TCP/IP (puerto 4840, 50000, 62541)}/grisclaro}{
+    \node[draw,fill=\col,minimum width=120mm,text width=116mm,align=center,minimum height=8mm,font=\small,rounded corners=2pt] at (0,-\i*9mm) {\txt};
+  }
+  \draw[decorate,decoration={brace,amplitude=5pt},thick,rojo] (6.3,0.4) -- (6.3,-2.7) node[midway,right=6pt,font=\scriptsize,align=left,rojo] {Visible en claro solo\\con None/None};
+  \draw[decorate,decoration={brace,amplitude=5pt},thick,gris] (6.3,-3.2) -- (6.3,-4.9) node[midway,right=6pt,font=\scriptsize,align=left,gris] {Siempre visible\\(endpoints, certificados)};
+\end{tikzpicture}
+\caption{Pila OPC UA sobre transporte binario. El contraste entre una sesión \cmd{None/None} y una \cmd{SignAndEncrypt} es el ejercicio central de OPC UA en el laboratorio.}
+\label{fig:opcuapila}
+\end{figure}
+
+\subsection{Descubrimiento y endpoints}
+
+Un cliente primero pide al servidor sus \emph{endpoints} (\cmd{GetEndpoints}): la lista de combinaciones URL, política y modo que acepta. Esa respuesta viaja siempre en claro, por lo que un escáner puede saber qué políticas ofrece un servidor sin autenticarse. El servidor OPC PLC de Microsoft acepta cualquier certificado de cliente si se lanza con \cmd{--autoaccept}; en producción el administrador debe mover manualmente cada certificado de cliente a la lista de confianza.
+
+% -----------------------------------------------------------------------------
+\section{MQTT}
+\label{sec:mqtt}
+
+MQTT (1999, hoy estándar OASIS/ISO 20922) es un protocolo ligero de \textbf{publicación--suscripción} pensado para enlaces poco fiables. A diferencia de Modbus y OPC UA, no hay conexión directa entre productor y consumidor: ambos se conectan a un \textbf{broker} (Mosquitto en el laboratorio, puerto 1883; 8883 con TLS). Los publicadores envían mensajes a un \emph{topic} jerárquico (\cmd{ot/esp32/nivel}) y el broker los reenvía a quien esté suscrito, con comodines \cmd{+} (un nivel) y \cmd{\#} (todo lo que sigue). Tres niveles de QoS regulan la entrega (0: a lo sumo una vez; 1: al menos una vez; 2: exactamente una vez), y los mensajes \emph{retained} permiten que un nuevo suscriptor reciba el último valor al conectarse.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+  \node[cajaverde,minimum width=30mm] (esp) at (0,0) {ESP32 PLC 14\\publica \cmd{ot/esp32/nivel}};
+  \node[caja,minimum width=30mm,fill=azulclaro] (broker) at (6.2,0) {Mosquitto\\broker :1883};
+  \node[caja,minimum width=28mm] (nr) at (12.4,1.2) {Node-RED\\suscrito \cmd{ot/esp32/\#}};
+  \node[caja,minimum width=28mm] (ign) at (12.4,-1.2) {Ignition MQTT Engine\\suscrito \cmd{ot/\#}};
+  \draw[flechav] (esp) -- (broker) node[etiqueta,midway,above] {PUBLISH QoS 0};
+  \draw[flecha] (broker) -- (nr);
+  \draw[flecha] (broker) -- (ign);
+  \draw[flechan] (nr.south west) to[bend left=20] node[etiqueta,pos=0.5,above=3pt] {\cmd{ot/esp32/cmd}} (broker.north east);
+\end{tikzpicture}
+\caption{Modelo publicación--suscripción de MQTT en el laboratorio.}
+\label{fig:mqtt}
+\end{figure}
+
+En planta MQTT se usa como capa IIoT (Sparkplug~B define una carga útil y una semántica de estado para ello). Sin TLS, todo el payload es legible en Wireshark con el filtro \cmd{mqtt}; el ejercicio del capítulo~\ref{cap:ejercicios} compara 1883 con 8883.
+
+% -----------------------------------------------------------------------------
+\section{Herramientas de control (nivel 1)}
+\label{sec:control}
+
+\subsection{OpenPLC}
+
+OpenPLC es un runtime de PLC de código abierto conforme a IEC 61131-3 (lenguajes LD, FBD, ST, IL, SFC). Se compone del \textbf{OpenPLC Editor} (herramienta de escritorio basada en Beremiz para escribir y compilar programas) y del \textbf{OpenPLC Runtime}, que ejecuta el programa compilado y expone una interfaz web (puerto 8080) para cargarlo, arrancarlo y configurar comunicaciones. El runtime actúa como \textbf{esclavo Modbus TCP} (puerto 502) publicando sus variables en las direcciones IEC (\cmd{\%IX0.0} entradas digitales, \cmd{\%QX0.0} salidas, \cmd{\%IW100} registros de entrada, \cmd{\%QW100} \emph{holding}), y también como \textbf{maestro} (menú \menu{Slave Devices}) que sondea otros esclavos Modbus y mapea sus registros en las mismas direcciones. Esa doble función es lo que permite que el PLC virtual en Docker lea el simulador y controle los PLC físicos. El Editor, además, compila programas para placas Arduino, Controllino y ESP32 dejándolas como esclavos Modbus TCP/RTU.
+
+\subsection{OPC PLC (Microsoft)}
+
+\cmd{mcr.microsoft.com/iotedge/opc-plc} es un servidor OPC UA de simulación creado para probar Azure IoT. Genera nodos con distintos comportamientos configurables por línea de comandos: \cmd{--sn} nodos lentos, \cmd{--fn} rápidos, \cmd{--gn} con ``fallos'' (picos, valores fuera de rango), \cmd{--sph} publica su propio certificado. Las opciones \cmd{--autoaccept}, \cmd{--ut} (usuarios anónimos) y \cmd{--dca} (no comprobar el dominio del certificado) relajan la seguridad para laboratorio y deben retirarse para practicar certificados. Escucha en el puerto 50000.
+
+\subsection{Servidor OPC UA en Python (asyncua)}
+
+\cmd{asyncua} (\emph{opcua-asyncio}) es la biblioteca Python de referencia para clientes y servidores OPC UA. El servidor del laboratorio (\cmd{opcua/server.py}, anexo~\ref{sec:anexo-opcua}) tiene 25 líneas: registra un namespace, crea un objeto con tres variables y actualiza dos de ellas cada segundo con funciones senoidales. Su valor didáctico es doble: muestra cómo se construye un espacio de direcciones y proporciona un servidor cuyo código se puede modificar (añadir métodos, exigir seguridad, cambiar tipos) para observar el efecto en la red.
+
+% -----------------------------------------------------------------------------
+\section{Herramientas de supervisión (nivel 2)}
+\label{sec:scada}
+
+\subsection{Ignition}
+
+Ignition (Inductive Automation) es una plataforma SCADA/IIoT comercial basada en Java con arquitectura cliente--servidor centrada en el \textbf{Gateway} (figura~\ref{fig:ignition}). El Gateway es un único proceso que integra los \emph{drivers} de dispositivos (Modbus TCP, Siemens S7, Allen-Bradley Logix, Omron, DNP3, BACnet), un cliente y un servidor OPC UA, el sistema de \emph{tags}, el historiador (sobre una base de datos SQL), alarmas, scripting Python (Jython) y los módulos de visualización. Todo se administra por web (puerto 8088). El \textbf{Designer} es la herramienta de desarrollo, que se lanza desde el Gateway mediante el \emph{Designer Launcher}. \textbf{Perspective} es el módulo de HMI web (HTML5, responsive) y \textbf{Vision} el módulo clásico de cliente Java de escritorio.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+  \node[cajagris,minimum width=140mm,minimum height=44mm] (gw) at (0,0) {};
+  \node[font=\small\bfseries,anchor=north west] at ($(gw.north west)+(2mm,-1mm)$) {Ignition Gateway (contenedor, :8088)};
+  \node[caja,text width=28mm,font=\scriptsize] (drv) at (-5.1,0.6) {Drivers\\Modbus TCP · S7 · Logix};
+  \node[caja,text width=28mm,font=\scriptsize] (opc) at (-1.7,0.6) {OPC UA\\cliente + servidor :62541};
+  \node[caja,text width=28mm,font=\scriptsize] (mqtt) at (1.7,0.6) {MQTT Engine\\(módulo Cirrus Link)};
+  \node[caja,text width=28mm,font=\scriptsize] (tags) at (5.1,0.6) {Tags · Historian\\Alarmas · Scripting};
+  \node[caja,fill=azulclaro,minimum width=132mm,font=\scriptsize] (persp) at (0,-1.1) {Perspective (HMI web) · Vision · Reporting · Web Dev};
+  \node[cajaverde,text width=26mm,font=\scriptsize] (plc) at (-5.1,-3.6) {OpenPLC\\Controllino · ESP32};
+  \node[cajaverde,text width=26mm,font=\scriptsize] (srv) at (-1.7,-3.6) {OPC PLC\\opcua-py};
+  \node[cajaverde,text width=26mm,font=\scriptsize] (mq) at (1.7,-3.6) {Mosquitto};
+  \node[cajanaranja,text width=26mm,font=\scriptsize] (des) at (5.1,-3.6) {Designer Launcher\\navegador (sesiones)};
+  \draw[flecha] (plc) -- (drv);
+  \draw[flecha] (srv) -- (opc);
+  \draw[flecha] (mq) -- (mqtt);
+  \draw[flechan] (des) -- (persp.south -| des);
+\end{tikzpicture}
+\caption{Arquitectura de Ignition: un Gateway concentra drivers, OPC UA, tags y módulos de visualización; el Designer y las sesiones Perspective son clientes del Gateway.}
+\label{fig:ignition}
+\end{figure}
+
+Ignition es relevante en un curso de redes porque su comportamiento es el de un SCADA de planta real: abre varias conexiones TCP por dispositivo, sondea a intervalos configurables (\emph{scan class} / \emph{tag group}), reintenta ante fallos y genera la ``firma'' de tráfico periódico que un analista debe reconocer. Su modelo de licencias se trata en el capítulo~\ref{cap:licencias}.
+
+\subsection{FUXA}
+
+FUXA es un SCADA/HMI web de código abierto (Node.js + Angular) mucho más ligero que Ignition. Ofrece conexiones Modbus TCP/RTU, OPC UA, S7, MQTT, BACnet y WebAPI, un editor gráfico de sinópticos SVG en el navegador (puerto 1881), alarmas y un histórico sencillo. Sirve como segundo cliente para contrastar cómo dos SCADA distintos sondean el mismo esclavo (número de conexiones, intervalo, agrupación de registros) y como alternativa cuando Ignition no está disponible.
+
+\subsection{Node-RED}
+
+Node-RED es un entorno de programación por flujos (nodos conectados en un editor web, puerto 1880) construido sobre Node.js. Con los paquetes \cmd{node-red-contrib-modbus} y \cmd{node-red-contrib-opcua} se convierte en una pasarela de protocolos: puede leer Modbus y publicar en MQTT, exponer un servidor OPC UA, o generar tráfico sintético continuo para capturar. En el laboratorio ocupa el papel de la ``pasarela'' en el ejercicio de DMZ y de consumidor MQTT del ESP32.
+
+% -----------------------------------------------------------------------------
+\section{Herramientas de análisis y seguridad}
+\label{sec:analisis}
+
+\subsection{Wireshark, tshark y tcpdump}
+
+Wireshark es el analizador de protocolos de referencia; \cmd{tshark} es su versión de línea de comandos y \cmd{tcpdump} la utilidad clásica de captura a archivo \cmd{.pcap}. Wireshark incluye disectores para todos los protocolos del laboratorio: \cmd{mbtcp}/\cmd{modbus}, \cmd{opcua}, \cmd{mqtt}, \cmd{s7comm}, \cmd{enip}/\cmd{cip}, \cmd{pn\_io}/\cmd{pn\_dcp}. Dos herramientas de Wireshark son especialmente útiles en OT: \menu{Statistics \ra{} Conversations}, que resume quién habla con quién y cuánto, y \menu{Statistics \ra{} I/O Graph}, que muestra paquetes por segundo y revela la periodicidad del sondeo. Cuando un protocolo va por un puerto no estándar (OPC UA en 50000), se indica con \menu{Analyze \ra{} Decode As}.
+
+\subsection{netshoot}
+\label{sec:netshoot}
+
+\cmd{nicolaka/netshoot} es una imagen Docker con decenas de herramientas de red (tshark, tcpdump, nmap, iperf, socat, dig\ldots). Su uso más potente es \cmd{docker run --net container:<nombre>}: el contenedor auxiliar se une al \emph{namespace de red} del contenedor objetivo y comparte su \cmd{eth0}, de modo que \cmd{tshark -i eth0} captura exactamente lo que ese servicio envía y recibe, sin tocar el host. Funciona igual en Linux, macOS y Windows, por lo que es el método de captura principal de esta guía.
+
+\subsection{nmap y scripts NSE}
+
+nmap descubre hosts y puertos; con el \emph{Nmap Scripting Engine} incorpora scripts específicos de ICS: \cmd{modbus-discover} (identifica esclavos y lee su ID de dispositivo), \cmd{s7-info} (extrae modelo, firmware y número de serie de un S7 vía S7comm), \cmd{enip-info}, \cmd{bacnet-info}. El escaneo es la primera fase de cualquier intrusión y también la forma de inventariar una red propia; en OT debe hacerse con cuidado porque algunos PLC antiguos se bloquean ante escaneos agresivos.
+
+\subsection{Conpot}
+
+Conpot (proyecto Honeynet) es un \textbf{honeypot} de sistemas de control: un servidor que imita un PLC (por defecto un Siemens S7-300 con S7comm en el 102, Modbus en el 502, SNMP en el 161 y una web de diagnóstico en el 80) y registra en detalle cada conexión. Desplegado en una red real, cualquier tráfico que reciba es por definición sospechoso, porque ningún proceso legítimo lo necesita. En el laboratorio sirve para ver cómo ``luce'' un PLC ante nmap y para correlacionar un escaneo con el log del honeypot, que es el principio de la detección de intrusos en OT.
+
+\subsection{UaExpert}
+
+UaExpert (Unified Automation) es el cliente OPC UA gráfico de referencia, gratuito con registro. Permite descubrir endpoints, elegir política y modo de seguridad, gestionar certificados, navegar el espacio de direcciones, leer, escribir, suscribirse y llamar métodos. Es la forma más rápida de comparar una conexión sin seguridad con una cifrada.
+
+\subsection{Monitorización pasiva y port mirroring}
+
+Los sensores de red OT comerciales (Nozomi, Claroty, Dragos) y los de código abierto (Zeek, Suricata con reglas Modbus) no se instalan en los PLC: escuchan una copia del tráfico obtenida de un puerto espejo (\emph{SPAN/mirror}) del switch o de un TAP. El laboratorio reproduce esa posición con un switch gestionable barato cuyo puerto espejo alimenta una NIC de captura del host (figura~\ref{fig:captura}). La lección es que la visibilidad de la red depende de dónde se coloque el sensor, no solo de la herramienta.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\textwidth]{fig5_captura}
+  \caption{Puntos de captura del laboratorio y qué tráfico se observa en cada uno.}
+  \label{fig:captura}
+\end{figure}
+
+% -----------------------------------------------------------------------------
+\section{Hardware físico}
+\label{sec:hardware}
+
+\subsection{Controllino}
+
+Controllino es una familia de PLC industriales basados en Arduino (ATmega328 en el MINI; ATmega2560 en MAXI y MEGA) con entradas y salidas a 24~V, relés, RTC y, en los modelos MAXI/MEGA, Ethernet 10/100 (controlador Wiznet W5100) y RS485. Se programa con el Arduino IDE y las librerías estándar (\cmd{Ethernet}, \cmd{ArduinoModbus}, \cmd{ArduinoRS485}), o con OpenPLC Editor en IEC 61131-3. Sus limitaciones son didácticamente valiosas: el W5100 admite solo 4 sockets simultáneos y el microcontrolador a 16~MHz responde a Modbus con una latencia claramente mayor que la de un simulador, lo que se mide en Wireshark.
+
+\subsection{ESP32 PLC 14 (Industrial Shields)}
+
+El ESP32 PLC~14 lleva un ESP32 de doble núcleo a 240~MHz con WiFi y Bluetooth, Ethernet RJ45, RS485 half-duplex, I2C de expansión, RTC, entradas analógicas 0--10~V / 4--20~mA y un relé. Industrial Shields proporciona el paquete de placas \cmd{industrialshields-esp32} y la librería \textbf{Tools40} con clases Modbus TCP/RTU maestro y esclavo. Su potencia y su doble conectividad (cable y WiFi) lo hacen ideal para tres papeles: esclavo Modbus TCP, \textbf{pasarela RTU\ra{}TCP} que expone al Controllino por Ethernet, y publicador MQTT.
+
+\subsection{RS485 y Modbus RTU}
+
+RS485 es una capa física serie diferencial (par A/B) multipunto y half-duplex, con alcance de hasta 1200~m y hasta 32 nodos por segmento sin repetidores. Requiere terminación de 120~$\Omega$ en ambos extremos y una referencia de masa común. Sobre ella corre Modbus RTU, donde el tiempo de silencio entre tramas es parte del protocolo: un analizador debe capturar los bytes crudos (adaptador USB-RS485 en paralelo al bus) y reconstruir las tramas por tiempo o por CRC. Wireshark no lee puertos serie directamente, pero un volcado se puede encapsular con \cmd{socat} y decodificar como \cmd{mbrtu}.
+
+% -----------------------------------------------------------------------------
+\section{Ethernet industrial en tiempo real}
+\label{sec:rt}
+
+PROFINET, EtherNet/IP con I/O implícito y EtherCAT trabajan en capa~2: usan tramas Ethernet propias (EtherType específico), multicast y tiempos de ciclo del orden de milisegundos. El bridge de Docker es una abstracción de capa~3 y en macOS/Windows ni siquiera expone la NIC real, por lo que estos protocolos no se simulan bien en contenedores. La tabla~\ref{tab:rt} resume las opciones si se quieren añadir al laboratorio.
+
+\begin{table}[H]
+\centering\small
+\caption{Opciones para estudiar Ethernet industrial de tiempo real fuera de Docker.}
+\label{tab:rt}
+\begin{tabularx}{\textwidth}{L{2.6cm} L{4.6cm} X}
+\toprule
+\textbf{Protocolo} & \textbf{Opción recomendada} & \textbf{Notas} \\
+\midrule
+PROFINET (controlador) & TIA Portal + PLCSIM Advanced (Windows, trial) & Expone un controlador PROFINET virtual sobre la NIC del PC; filtro \cmd{pn\_dcp} para ver el descubrimiento. \\
+PROFINET (dispositivo) & p-net (RT-Labs) en Raspberry Pi o VM Linux & Puede correr en contenedor solo en Linux nativo con \cmd{network\_mode: host} y \cmd{cap\_add: NET\_ADMIN, NET\_RAW}. \\
+EtherNet/IP & OpENer (adaptador open source) o driver de Ignition contra un PLC real & OpENer funciona en contenedor Linux con \cmd{network\_mode: host}. \\
+EtherCAT & SOEM + un esclavo real (p.\,ej. Beckhoff EL1008 usado) & No existe simulador serio sin hardware. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Con el Controllino y el ESP32 se cubren Modbus TCP/RTU y MQTT sobre hardware real; un S7-1200 o un Micro820 de segunda mano completan el laboratorio para PROFINET y EtherNet/IP.

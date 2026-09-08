@@ -1,0 +1,46 @@
+\chapter{Introducción}
+\label{cap:intro}
+
+\section{Motivación}
+
+Las redes industriales son el sistema nervioso de una planta: por ellas viajan las lecturas de sensores, las órdenes a actuadores, los datos que alimentan al SCADA y, cada vez más, la información que sube a la nube. Estudiarlas exige ver los protocolos ``en el cable'', no solo en el diagrama; y montar una planta real para ello es caro, lento y arriesgado. Este laboratorio resuelve ese problema ejecutando en un solo PC, mediante contenedores Docker, todos los componentes lógicos de una arquitectura de automatización moderna, e integrándolos después con dos controladores físicos de bajo coste (Controllino y ESP32 PLC~14 de Industrial Shields) para que la experiencia no sea puramente simulada.
+
+El énfasis es de \emph{redes}: cada práctica termina con una captura de tráfico y con una pregunta sobre qué se ve, qué no se ve y por qué. Los protocolos se estudian tal como aparecen en Wireshark, y la seguridad (segmentación, reconocimiento, honeypots) se trata como parte inseparable del diseño de la red.
+
+\section{Objetivos}
+
+Al completar la guía el estudiante será capaz de:
+\begin{itemize}
+  \item Desplegar y administrar con Docker Compose una red de laboratorio con dispositivos de campo simulados, un PLC virtual, servidores OPC UA, un broker MQTT, dos plataformas SCADA y un honeypot industrial.
+  \item Explicar la estructura de los protocolos Modbus TCP/RTU, OPC UA y MQTT e identificar sus mensajes en una captura de red.
+  \item Configurar Ignition, FUXA y Node-RED como clientes de esos protocolos y construir una pantalla HMI mínima.
+  \item Capturar tráfico dentro de la red Docker, desde el host y desde un puerto espejo de un switch, y analizarlo con Wireshark, tshark y nmap.
+  \item Integrar controladores físicos (Controllino, ESP32) en la red del laboratorio por Ethernet, WiFi y RS485, y comparar su comportamiento con los dispositivos simulados.
+  \item Razonar sobre segmentación, detección y licenciamiento de las herramientas empleadas.
+\end{itemize}
+
+\section{Alcance y organización del documento}
+
+La guía se organiza en tres bloques. El \textbf{marco teórico} (capítulo~\ref{cap:teoria}) explica cada tecnología y herramienta con el detalle necesario para entender lo que ocurre en las prácticas. El bloque de \textbf{puesta en marcha} (capítulos~\ref{cap:licencias} y~\ref{cap:instalacion}) cubre licencias, requisitos, instalación en macOS y Linux, y los problemas concretos que aparecieron al desplegar el laboratorio, con su solución. El bloque \textbf{práctico} (capítulos~\ref{cap:practicas} a~\ref{cap:ejercicios}) recorre paso a paso Modbus, OPC UA, SCADA, captura de tráfico, honeypot y hardware real, y propone catorce ejercicios graduados. El capítulo~\ref{cap:problemas} recopila fallos frecuentes y los anexos contienen todos los archivos de configuración completos.
+
+La figura~\ref{fig:ruta} muestra el orden de montaje recomendado: cada paso añade una capa sobre la anterior, de modo que el laboratorio es utilizable desde el paso~2.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{fig6_ruta}
+  \caption{Orden de montaje del laboratorio: cada paso añade una capa sobre la anterior.}
+  \label{fig:ruta}
+\end{figure}
+
+\section{Convenciones}
+
+\begin{itemize}
+  \item Los comandos se muestran en bloques de código; el símbolo \cmd{\$} no se escribe. Todos se ejecutan desde la carpeta \lab{} salvo indicación contraria.
+  \item Las rutas de menú se escriben como \menu{Config \ra{} OPC UA \ra{} Connections}.
+  \item Las direcciones IP de la red Docker son \ip{172.28.0.x}; las del segmento físico OT, \ip{192.168.10.x}. Desde el host (macOS o Windows) los servicios se alcanzan siempre por \ip{localhost:<puerto publicado>}.
+  \item Las cajas de color destacan notas, avisos, errores críticos y resultados esperados.
+\end{itemize}
+
+\begin{nota}[Archivos de referencia]
+Todo el laboratorio vive en la carpeta \lab{}. Los archivos íntegros (\cmd{docker-compose.yml}, \cmd{modbus/server.json}, \cmd{opcua/server.py}, \cmd{mosquitto/mosquitto.conf}) están reproducidos en el anexo~\ref{cap:anexos} y en la subcarpeta \cmd{docs/latex/src/} de esta guía.
+\end{nota}

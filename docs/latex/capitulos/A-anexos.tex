@@ -1,0 +1,78 @@
+\chapter{Archivos de configuración}
+\label{cap:anexos}
+
+Los archivos siguientes se incluyen desde la carpeta \cmd{src/} de esta guía y son copia exacta de los que hay en \lab{}.
+
+\section{\cmd{docker-compose.yml} (versión macOS / Docker Desktop)}
+\label{sec:anexo-compose}
+\lstinputlisting[style=yaml]{src/docker-compose.yml}
+
+\section{\cmd{docker-compose.yml} (versión original Linux)}
+\label{sec:anexo-compose-linux}
+Diferencias respecto a la versión macOS: sin \cmd{platform}, sin \cmd{restart}, Ignition con bind mount y Conpot con \cmd{command} corto; en Linux nativo estas dos últimas también fallan (sección~\ref{sec:fallos}), por lo que se recomienda usar la versión macOS en todos los sistemas.
+\lstinputlisting[style=yaml]{src/docker-compose.linux.yml}
+
+\section{\cmd{modbus/server.json}}
+\label{sec:anexo-modbus}
+\lstinputlisting[style=json]{src/server.json}
+
+\section{\cmd{opcua/server.py} y \cmd{opcua/Dockerfile}}
+\label{sec:anexo-opcua}
+\lstinputlisting[style=python]{src/server.py}
+\lstinputlisting[style=docker]{src/Dockerfile}
+
+\section{\cmd{mosquitto/mosquitto.conf}}
+\label{sec:anexo-mosquitto}
+\lstinputlisting[style=plain]{src/mosquitto.conf}
+
+Para el ejercicio TLS, añadir un segundo listener con certificados generados con OpenSSL (o \cmd{mkcert}) y publicar el 8883 en el compose:
+
+\begin{lstlisting}[style=plain]
+listener 1883
+allow_anonymous true
+
+listener 8883
+cafile   /mosquitto/certs/ca.crt
+certfile /mosquitto/certs/server.crt
+keyfile  /mosquitto/certs/server.key
+allow_anonymous true
+\end{lstlisting}
+
+\chapter{Referencia rápida de comandos}
+\label{cap:comandos}
+
+\begin{lstlisting}[style=bash]
+# --- Ciclo de vida ---
+docker compose up -d                       # arrancar todo
+docker compose up -d <svc>                 # arrancar uno
+docker compose up -d --force-recreate <svc>   # recrear tras cambiar el compose
+docker compose up -d --build opcua-py      # reconstruir imagen propia
+docker compose ps / stop / start / restart <svc> / down / down -v
+docker compose logs -f --tail 50 <svc>
+docker stats
+
+# --- Inspeccion ---
+docker inspect <imagen> --format '{{.Config.Entrypoint}} {{.Config.Cmd}}'
+docker network inspect ot-lab
+docker volume ls && docker volume inspect ot-lab_ignition-data
+docker exec -it <svc> sh
+
+# --- Captura ---
+docker run --rm --net container:<svc> nicolaka/netshoot tshark -i eth0 -Y mbtcp
+docker run --rm --net container:<svc> -v "$PWD/captures:/cap" nicolaka/netshoot \
+  tcpdump -i eth0 -w /cap/<nombre>.pcap "<filtro bpf>"
+
+# --- Escaneo ---
+docker run --rm --network ot-lab nicolaka/netshoot nmap -sT -p 502,5020,102,4840,50000 172.28.0.0/24
+docker run --rm --network ot-lab nicolaka/netshoot nmap -p 502 --script modbus-discover <ip>
+docker run --rm --network ot-lab nicolaka/netshoot nmap -p 102 --script s7-info 172.28.0.90
+
+# --- Clientes rapidos ---
+docker run --rm --network ot-lab python:3.12-slim sh -c "pip -q install pymodbus && python -c \"...\""
+docker run --rm --network ot-lab python:3.12-slim sh -c "pip -q install asyncua && python -c \"...\""
+docker run --rm --network ot-lab eclipse-mosquitto:2 mosquitto_sub -h 172.28.0.60 -t 'ot/#' -v
+docker run --rm --network ot-lab eclipse-mosquitto:2 mosquitto_pub -h 172.28.0.60 -t ot/test -m hola
+
+# --- Copia de seguridad de Ignition ---
+docker run --rm -v ot-lab_ignition-data:/d -v "$PWD:/b" alpine tar czf /b/ignition-backup.tgz -C /d .
+\end{lstlisting}

@@ -1,0 +1,84 @@
+\chapter{Licencias y costes}
+\label{cap:licencias}
+
+Casi todo el laboratorio es software libre o gratuito. Las excepciones relevantes son Ignition, cuyo modelo conviene entender antes de usarlo en clase, y algunas herramientas de escritorio que exigen registro. La tabla~\ref{tab:licencias} resume la situación; las secciones siguientes detallan los casos con matices.
+
+\begin{table}[H]
+\centering\small
+\caption{Licencia y coste de cada componente del laboratorio.}
+\label{tab:licencias}
+\begin{tabularx}{\textwidth}{L{3.6cm} L{3.4cm} X}
+\toprule
+\textbf{Componente} & \textbf{Licencia} & \textbf{Coste y condiciones} \\
+\midrule
+Docker Engine (Linux) & Apache 2.0 & Gratuito. \\
+Docker Desktop (macOS/Win) & Propietaria (Docker Subscription Service Agreement) & Gratuito para uso personal, educativo, proyectos de código abierto y empresas pequeñas; las grandes empresas requieren suscripción. Uso académico cubierto. \\
+OpenPLC Runtime y Editor & GPLv3 & Gratuito. \\
+\cmd{oitc/modbus-server} & Código abierto & Gratuito. \\
+OPC PLC (Microsoft) & MIT & Gratuito. \\
+asyncua (opcua-asyncio) & LGPL-3.0 & Gratuito. \\
+Ignition & Propietaria & \textbf{Trial gratuito ilimitado} en bloques de 2~h reiniciables; \textbf{Maker Edition} gratuita para uso personal/educativo no comercial; licencia comercial perpetua por servidor. Ver sección~\ref{sec:lic-ignition}. \\
+FUXA & MIT & Gratuito. \\
+Node-RED & Apache 2.0 & Gratuito. \\
+Eclipse Mosquitto & EPL-2.0 / EDL-1.0 & Gratuito. \\
+Conpot & GPLv2 & Gratuito. \\
+netshoot, nmap, tcpdump & Código abierto (nmap: NPSL) & Gratuito. \\
+Wireshark & GPLv2 & Gratuito. \\
+UaExpert & Propietaria & Gratuito para uso no comercial; requiere registro en \url{unified-automation.com} para descargar. \\
+Arduino IDE & AGPL-3.0 / GPL & Gratuito. \\
+Tools40 (Industrial Shields) & LGPL & Gratuito. \\
+Factory I/O (opcional) & Propietaria & Simulador 3D de planta con Modbus/OPC UA. Versión de prueba de 30~días; licencias de pago con descuento educativo. Solo Windows. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\section{Ignition}
+\label{sec:lic-ignition}
+
+Ignition no exige pago para usarse en laboratorio. Existen tres vías, resumidas en la figura~\ref{fig:lic-ignition}.
+
+\subsection{Modo trial (edición Standard)}
+
+Al instalar Ignition sin licencia, \emph{todos} los módulos funcionan de forma completa durante 2~horas. Al expirar, los módulos se detienen (el Gateway sigue vivo) y en la cabecera de la web aparece \menu{Reset Trial}: un clic reinicia el contador otras 2~horas, sin límite de repeticiones, sin cuenta y sin conexión a Internet. Es el modo que usa el \cmd{docker-compose.yml} del laboratorio (\cmd{IGNITION\_EDITION: "standard"}) y el recomendado para las sesiones de clase, porque no impone restricciones de módulos y no depende de licencias externas. El único inconveniente es tener que pulsar \menu{Reset Trial} en sesiones largas.
+
+\subsection{Maker Edition}
+
+Maker Edition es una licencia gratuita permanente destinada a uso \textbf{personal y educativo no comercial}. Se obtiene creando una cuenta en \url{account.inductiveautomation.com}, que entrega una clave de licencia y un token de activación; en Docker se pasan como \cmd{IGNITION\_EDITION: "maker"}, \cmd{IGNITION\_LICENSE\_KEY} e \cmd{IGNITION\_ACTIVATION\_TOKEN}. El Gateway debe poder contactar periódicamente con \cmd{licensing.inductiveautomation.com} (HTTPS); si pierde la conexión durante un tiempo vuelve al modo trial.
+
+Sus limitaciones respecto a Standard son: máximo 10 sesiones Perspective simultáneas, 10\,000 tags, sin Perspective Workstation (aplicación de escritorio), sin Vision (cliente Java clásico) y redundancia solo en modo independiente. Incluye los módulos que el laboratorio necesita: driver Modbus TCP, OPC UA (cliente y servidor), Perspective, Historian, Alarm Notification, Reporting, SQL Bridge, SFC, Serial Support, UDP/TCP Driver, Web Dev y los drivers Siemens, Allen-Bradley y Omron. Los módulos MQTT de Cirrus Link (MQTT Engine, Transmission, Distributor) son de terceros y están habilitados para Maker. En resumen, \textbf{no quita nada relevante para trabajar con Controllino, ESP32, OpenPLC ni con los servidores OPC UA del laboratorio}.
+
+\subsection{Licencias educativas y comerciales}
+
+La documentación de Maker indica que para instituciones educativas (aulas, proyectos de fin de carrera) Inductive Automation ofrece opciones específicas a través de su equipo de ventas. Para un uso formal en la Universidad de Cuenca lo correcto es solicitar esa licencia educativa. La licencia comercial es perpetua por servidor (no una suscripción) y solo tiene sentido en producción.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\footnotesize]
+  \node[caja,fill=azulclaro,text width=40mm] (q1) at (0,0) {¿Sesiones de clase de pocas horas o uso puntual?};
+  \node[cajaverde,text width=38mm] (trial) at (-3.4,-2.3) {\textbf{Trial Standard}\\2 h reiniciables, sin cuenta, sin Internet, todos los módulos};
+  \node[caja,fill=azulclaro,text width=38mm] (q2) at (3.4,-2.3) {¿Gateway encendido días sin intervención?};
+  \node[cajaverde,text width=38mm] (maker) at (1.0,-4.9) {\textbf{Maker Edition}\\gratuita, cuenta IA, Internet, 10 sesiones / 10\,000 tags};
+  \node[cajanaranja,text width=38mm] (edu) at (5.8,-4.9) {\textbf{Licencia educativa}\\solicitar a ventas de IA (uso institucional)};
+  \draw[flecha] (q1) -- node[etiqueta,above left] {sí} (trial);
+  \draw[flecha] (q1) -- node[etiqueta,above right] {no} (q2);
+  \draw[flecha] (q2) -- node[etiqueta,above left] {personal} (maker);
+  \draw[flecha] (q2) -- node[etiqueta,above right] {institucional} (edu);
+\end{tikzpicture}
+\caption{Elección de la vía de licenciamiento de Ignition para el laboratorio.}
+\label{fig:lic-ignition}
+\end{figure}
+
+\begin{nota}[Recomendación adoptada]
+El laboratorio se despliega en modo \textbf{trial Standard}. Si se quiere un Gateway permanente para demostraciones, cambiar a Maker es un cambio de tres variables de entorno en el \cmd{docker-compose.yml}; el proyecto y los tags se conservan en el volumen \cmd{ignition-data}.
+\end{nota}
+
+% -----------------------------------------------------------------------------
+\section{Docker Desktop}
+
+Docker Engine en Linux es software libre sin restricciones. Docker Desktop (el paquete gráfico para macOS y Windows que incluye la máquina virtual, Compose y Kubernetes) es gratuito para uso personal, educativo y de código abierto, y para empresas de menos de 250 empleados y menos de 10~millones de dólares de facturación; por encima de ese umbral requiere una suscripción de pago. El uso académico en la universidad está cubierto por la modalidad gratuita.
+
+% -----------------------------------------------------------------------------
+\section{UaExpert y otras herramientas de escritorio}
+
+UaExpert se descarga gratis tras registrarse en la web de Unified Automation; la licencia permite uso no comercial y evaluación. No hay límite temporal. Wireshark, nmap, Arduino IDE y OpenPLC Editor son software libre. Factory I/O, cuyo instalador está en la carpeta del curso, es un simulador 3D de planta (Windows) que se comunica por Modbus TCP y OPC UA y puede sustituir al \cmd{modbus-sim} como ``proceso'' visual; su versión de prueba dura 30~días y las licencias educativas son de pago con descuento. Es opcional y no forma parte de las prácticas de esta guía.

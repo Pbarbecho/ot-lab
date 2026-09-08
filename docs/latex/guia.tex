@@ -1,0 +1,171 @@
+% =============================================================================
+%  Laboratorio de redes industriales en Docker — Guía completa
+%  Universidad de Cuenca · MCIE · Informática Industrial
+%  Compilar: pdflatex guia.tex  (x2 para índice y referencias)  o latexmk -pdf guia.tex
+% =============================================================================
+\documentclass[11pt,a4paper,oneside]{report}
+
+% ---------- Idioma y fuentes ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[spanish,es-noshorthands,es-tabla]{babel}
+\usepackage{microtype}
+\usepackage[htt]{hyphenat}   % permite partir palabras en \texttt
+\emergencystretch=2em
+
+% ---------- Página ----------
+\usepackage[a4paper,margin=2.4cm,headheight=14pt]{geometry}
+\usepackage{fancyhdr}
+\usepackage{emptypage}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\nouppercase{\leftmark}}
+\fancyhead[R]{\small Laboratorio de redes industriales}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+% ---------- Gráficos ----------
+\usepackage{graphicx}
+\graphicspath{{figuras/}}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric,arrows.meta,positioning,fit,backgrounds,calc,matrix,chains,decorations.pathreplacing}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf,margin=1em}
+
+% ---------- Tablas ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\renewcommand{\arraystretch}{1.15}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% ---------- Listas y cajas ----------
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+\usepackage[most]{tcolorbox}
+
+% ---------- Colores ----------
+\definecolor{azul}{HTML}{1F5FBF}
+\definecolor{azulclaro}{HTML}{EAF1FB}
+\definecolor{verde}{HTML}{1B8A5A}
+\definecolor{verdeclaro}{HTML}{E8F6EF}
+\definecolor{naranja}{HTML}{C0621A}
+\definecolor{naranjaclaro}{HTML}{FDF3E6}
+\definecolor{rojo}{HTML}{B3261E}
+\definecolor{rojoclaro}{HTML}{FBEAEA}
+\definecolor{gris}{HTML}{555555}
+\definecolor{grisclaro}{HTML}{F3F4F6}
+\definecolor{codigofondo}{HTML}{F7F7F9}
+
+% ---------- Cajas de aviso ----------
+\newtcolorbox{nota}[1][Nota]{enhanced,colback=azulclaro,colframe=azul,fonttitle=\bfseries,title={#1},arc=2pt,boxrule=0.6pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\newtcolorbox{aviso}[1][Atención]{enhanced,colback=naranjaclaro,colframe=naranja,fonttitle=\bfseries,title={#1},arc=2pt,boxrule=0.6pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\newtcolorbox{peligro}[1][Importante]{enhanced,colback=rojoclaro,colframe=rojo,fonttitle=\bfseries,title={#1},arc=2pt,boxrule=0.6pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\newtcolorbox{ok}[1][Resultado esperado]{enhanced,colback=verdeclaro,colframe=verde,fonttitle=\bfseries,title={#1},arc=2pt,boxrule=0.6pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+
+% ---------- Código ----------
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codigofondo},
+  frame=single, rulecolor=\color{gris!40}, framerule=0.4pt,
+  breaklines=true, breakatwhitespace=false,
+  columns=fullflexible, keepspaces=true,
+  showstringspaces=false, tabsize=2,
+  commentstyle=\color{gris}\itshape,
+  keywordstyle=\color{azul}\bfseries,
+  stringstyle=\color{verde},
+  numberstyle=\tiny\color{gris}, xleftmargin=4pt, framexleftmargin=4pt,
+  aboveskip=6pt, belowskip=8pt,
+  extendedchars=true,
+  literate=
+   {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+   {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+   {ñ}{{\~n}}1 {Ñ}{{\~N}}1 {¿}{{?`}}1 {¡}{{!`}}1 {ü}{{\"u}}1
+   {→}{{$\rightarrow$}}1 {↔}{{$\leftrightarrow$}}1 {≥}{{$\geq$}}1 {≤}{{$\leq$}}1 {Ω}{{$\Omega$}}1 {·}{{$\cdot$}}1
+   {—}{{---}}1 {–}{{--}}1
+}
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null},
+  sensitive=false,
+  comment=[l]{\#},
+  morestring=[b]', morestring=[b]",
+  moredelim=[l][\color{azul}\bfseries]{:},
+}
+\lstdefinelanguage{json}{
+  keywords={true,false,null},
+  comment=[l]{//},
+  morestring=[b]",
+}
+\lstdefinelanguage{docker}{
+  keywords={FROM,RUN,COPY,CMD,ENTRYPOINT,ENV,WORKDIR,EXPOSE,USER,ADD,VOLUME},
+  comment=[l]{\#},
+  morestring=[b]",
+}
+\lstdefinestyle{bash}{language=bash,morekeywords={docker,compose,tshark,tcpdump,nmap,mbpoll,pip,python,sudo,ip,curl}}
+\lstdefinestyle{yaml}{language=yaml}
+\lstdefinestyle{json}{language=json}
+\lstdefinestyle{python}{language=Python}
+\lstdefinestyle{cpp}{language=C++}
+\lstdefinestyle{docker}{language=docker}
+\lstdefinestyle{plain}{language={}}
+
+% ---------- Enlaces ----------
+\usepackage{xurl}
+\usepackage[colorlinks=true,linkcolor=azul,urlcolor=azul,citecolor=azul,pdftitle={Laboratorio de redes industriales en Docker},pdfauthor={Pablo Barbecho}]{hyperref}
+\urlstyle{tt}
+
+% ---------- Macros ----------
+\newcommand{\cmd}[1]{\texttt{#1}}
+\newcommand{\ip}[1]{\texttt{#1}}
+\newcommand{\menu}[1]{\textsf{\textbf{#1}}}
+\newcommand{\ra}{$\rightarrow$}
+\newcommand{\lab}{\texttt{ot-lab}}
+
+% ---------- Estilos TikZ comunes ----------
+\tikzset{
+  caja/.style={draw=azul,fill=white,rounded corners=3pt,thick,align=center,font=\small,inner sep=5pt,minimum height=9mm},
+  cajaverde/.style={caja,draw=verde,fill=verdeclaro},
+  cajanaranja/.style={caja,draw=naranja,fill=naranjaclaro},
+  cajaroja/.style={caja,draw=rojo,fill=rojoclaro},
+  cajagris/.style={caja,draw=gris,fill=grisclaro},
+  zona/.style={draw=azul,dashed,rounded corners=6pt,thick,inner sep=8pt},
+  flecha/.style={-{Stealth[length=2.5mm]},thick,azul},
+  flechav/.style={-{Stealth[length=2.5mm]},thick,verde},
+  flechan/.style={-{Stealth[length=2.5mm]},thick,naranja},
+  flechar/.style={-{Stealth[length=2.5mm]},thick,rojo,dashed},
+  etiqueta/.style={font=\scriptsize,fill=white,inner sep=1pt},
+  byte/.style={draw,minimum height=8mm,font=\scriptsize,align=center,inner sep=2pt},
+}
+
+\title{Laboratorio de redes industriales en Docker}
+\author{Pablo Barbecho}
+\date{\today}
+
+\begin{document}
+
+% =============================================================================
+\input{capitulos/00-portada}
+\tableofcontents
+\listoffigures
+\listoftables
+\clearpage
+
+\input{capitulos/01-introduccion}
+\input{capitulos/02-marco-teorico}
+\input{capitulos/03-licencias}
+\input{capitulos/04-instalacion}
+\input{capitulos/05-practicas}
+\input{capitulos/06-hardware}
+\input{capitulos/07-ejercicios}
+\input{capitulos/08-problemas}
+
+\appendix
+\input{capitulos/A-anexos}
+
+\end{document}

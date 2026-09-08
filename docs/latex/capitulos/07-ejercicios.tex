@@ -1,0 +1,32 @@
+\chapter{Ejercicios propuestos}
+\label{cap:ejercicios}
+
+Los ejercicios están ordenados de menor a mayor dificultad y cada uno se apoya en los anteriores. Para cada uno se espera una captura \cmd{.pcap} comentada, las respuestas a las preguntas y, cuando proceda, la configuración empleada.
+
+\section{Con el laboratorio en Docker}
+
+\begin{enumerate}[label=\textbf{E\arabic*.},leftmargin=*,itemsep=4pt]
+  \item \textbf{Anatomía Modbus.} Capturar una lectura (FC~03) y una escritura (FC~06) contra \cmd{modbus-sim}. Identificar en la MBAP el \emph{transaction ID}, el \emph{unit ID} y el campo \emph{length}; en la PDU el código de función, la dirección y los datos. Provocar una excepción leyendo un registro fuera de rango (offset 70000 no es posible; usar el FC~04 sobre \cmd{openplc} en un offset alto) y explicar el código devuelto.
+  \item \textbf{Polling.} Configurar en Ignition un \emph{tag group} de 500~ms para el dispositivo OpenPLC y medir en I/O Graph los paquetes por segundo. Cambiar a 100~ms y comparar. ¿Cuántas peticiones genera Ignition por ciclo y por qué? ¿Cómo agrupa registros contiguos?
+  \item \textbf{OPC UA en claro frente a cifrado.} Dos capturas de UaExpert (None/None frente a Basic256Sha256 Sign\&Encrypt). Explicar qué sigue siendo visible (endpoints, políticas, certificados, tamaños y periodicidad) y qué deja de serlo. ¿Qué podría inferir un atacante pasivo de la sesión cifrada?
+  \item \textbf{Reconocimiento.} Con nmap sobre \ip{172.28.0.0/24} y sin consultar el compose, clasificar cada host por función solo a partir de puertos y banners. Después ejecutar \cmd{modbus-discover} y \cmd{s7-info} y anotar qué información adicional exponen los protocolos ICS sin autenticación.
+  \item \textbf{Segmentación.} Crear una segunda red \cmd{ot-dmz} en el compose, mover Ignition a ella y dejar Node-RED conectado a ambas como pasarela. Verificar con nmap desde Ignition que ya no ve a OpenPLC directamente, y montar en Node-RED un flujo que le ``publique'' los datos por OPC UA o MQTT. Discutir qué se gana y qué se pierde.
+  \item \textbf{Detección.} Lanzar un escaneo y una escritura Modbus no autorizada contra Conpot. Correlacionar cada línea del log del honeypot con los paquetes de la captura. Proponer una regla de alerta (p.\,ej. Suricata: cualquier FC de escritura hacia el 502 desde una IP distinta del SCADA).
+  \item \textbf{Manipulación.} Desde pymodbus escribir un coil de OpenPLC mientras Ignition lo muestra en pantalla. Observar el efecto en la HMI y localizar la escritura en la captura. ¿Cómo distinguiría un operador una escritura legítima del SCADA de una externa, si ambas son idénticas en el cable?
+\end{enumerate}
+
+\section{Con los PLC físicos}
+
+\begin{enumerate}[label=\textbf{E\arabic*.},leftmargin=*,itemsep=4pt,resume]
+  \item \textbf{Simulado frente a real.} Ignition sondea a la vez \cmd{modbus-sim}, OpenPLC (Docker) y el Controllino. En Wireshark comparar el \emph{delta time} petición\ra{}respuesta de cada uno (columna \cmd{modbus.response\_time} o \cmd{tcp.time\_delta}). El Controllino (W5100, AVR a 16~MHz) será visiblemente más lento. ¿Qué implica para el periodo mínimo de sondeo del SCADA?
+  \item \textbf{Port mirroring.} Capturar el tráfico Ignition $\leftrightarrow$ Controllino desde la NIC conectada al puerto espejo del switch, sin tocar el host. Comparar con la captura desde \cmd{eth1}: ¿qué tráfico aparece en una y no en la otra?
+  \item \textbf{Ethernet frente a WiFi.} Mismo firmware en el ESP32 por cable y por WiFi; medir latencia, \emph{jitter} y retransmisiones (\cmd{tcp.analysis.retransmission}). Añadir interferencia (microondas, descargas en la misma WiFi) y repetir. Concluir sobre el uso de WiFi en control.
+  \item \textbf{Pasarela RTU\ra{}TCP.} Implementar la sección~\ref{sec:rtu} y observar que una sola petición Modbus TCP al ESP32 desencadena tráfico RS485 hacia el Controllino. Medir el tiempo extra que añade la pasarela.
+  \item \textbf{Segmentación real.} Con \cmd{nftables} (Linux) en el host permitir solo TCP~502 desde la IP de Ignition hacia \ip{192.168.10.0/24}. Verificar con nmap desde otro contenedor que ya no alcanza los PLC; intentar la escritura de coil desde un equipo de la red doméstica y comprobar que falla.
+  \item \textbf{Escritura no autorizada con efecto físico.} Desde un tercer host escribir el coil del relé del Controllino o del ESP32 y verlo conmutar. Diseñar una regla de detección (Zeek o Suricata con reglas Modbus) que alerte de escrituras desde IPs distintas del SCADA y comprobar que dispara.
+  \item \textbf{MQTT en claro frente a TLS.} Sección~\ref{sec:mqtt-esp32}: comparar capturas en 1883 y 8883. ¿Qué metadatos siguen visibles con TLS (tamaño, periodicidad, SNI)?
+\end{enumerate}
+
+\begin{nota}[Entregable sugerido por ejercicio]
+Archivo \cmd{.pcap} (o \cmd{.pcapng}) con un filtro de visualización guardado, una captura de pantalla de Wireshark con los campos relevantes señalados, y un párrafo de conclusiones. Para los ejercicios de configuración, el fragmento de \cmd{docker-compose.yml} o de firmware modificado.
+\end{nota}

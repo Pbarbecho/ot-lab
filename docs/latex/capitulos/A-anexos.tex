@@ -7,6 +7,11 @@ Los archivos siguientes se incluyen desde la carpeta \cmd{src/} de esta guía y 
 \label{sec:anexo-compose}
 \lstinputlisting[style=yaml]{src/docker-compose.yml}
 
+\section{\cmd{docker-compose.windows.yml} (Windows / WSL 2)}
+\label{sec:anexo-compose-win}
+Volúmenes con nombre para Ignition, FUXA y Node-RED; ver sección~\ref{sec:windows}.
+\lstinputlisting[style=yaml]{src/docker-compose.windows.yml}
+
 \section{\cmd{docker-compose.yml} (versión original Linux)}
 \label{sec:anexo-compose-linux}
 Diferencias respecto a la versión macOS: sin \cmd{platform}, sin \cmd{restart}, Ignition con bind mount y Conpot con \cmd{command} corto; en Linux nativo estas dos últimas también fallan (sección~\ref{sec:fallos}), por lo que se recomienda usar la versión macOS en todos los sistemas.

@@ -1,0 +1,16 @@
+# Forzar LF en archivos que se montan dentro de contenedores Linux.
+# Con CRLF (Git en Windows con autocrlf=true) Mosquitto no arranca y Python/JSON pueden fallar.
+* text=auto eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.conf text eol=lf
+*.py   text eol=lf
+*.sh   text eol=lf
+Dockerfile text eol=lf
+
+# Binarios
+*.png binary
+*.pdf binary
+*.pcap binary
+*.pcapng binary

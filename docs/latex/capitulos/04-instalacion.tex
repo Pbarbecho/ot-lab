@@ -74,8 +74,24 @@ sudo usermod -aG docker $USER
 \end{lstlisting}
 
 \subsection{Windows}
+\label{sec:windows}
 
-Docker Desktop con el backend WSL~2. El comportamiento es el mismo que en macOS (VM oculta, acceso por puertos publicados). Wireshark puede instalarse en Windows para abrir los \cmd{.pcap} generados con netshoot.
+Docker Desktop con el backend WSL~2 (instalar antes WSL con \cmd{wsl --install} en PowerShell como administrador y reiniciar). El comportamiento es el mismo que en macOS (VM oculta, acceso por puertos publicados). Wireshark puede instalarse en Windows para abrir los \cmd{.pcap} generados con netshoot. El laboratorio incluye un archivo específico, \cmd{docker-compose.windows.yml}, que se usa con la opción \cmd{-f}:
+
+\begin{lstlisting}[style=bash]
+docker compose -f docker-compose.windows.yml up -d
+docker compose -f docker-compose.windows.yml ps
+\end{lstlisting}
+
+Sus diferencias respecto a la versión macOS responden a tres particularidades de Windows:
+
+\begin{itemize}
+  \item \textbf{Volúmenes con nombre} también para FUXA y Node-RED (no solo Ignition). Los bind mounts sobre NTFS (\cmd{C:\textbackslash Users\textbackslash ...}) son lentos y no conservan el uid~1000 que Node-RED necesita. Solo se montan como bind mount los dos archivos de configuración (\cmd{server.json}, \cmd{mosquitto.conf}).
+  \item \textbf{Fin de línea LF.} Git en Windows convierte por defecto los archivos a CRLF; Mosquitto no arranca con un \cmd{mosquitto.conf} en CRLF. El repositorio incluye un \cmd{.gitattributes} que fuerza LF; si el problema aparece, ejecutar \cmd{git config core.autocrlf false} y volver a clonar.
+  \item \textbf{Puertos reservados.} Hyper-V y WSL reservan rangos de puertos dinámicos (habitualmente dentro de 49152--65535) y el 50000 del OPC PLC puede caer en uno de ellos; el error es \emph{bind: An attempt was made to access a socket in a way forbidden by its access permissions}. Comprobar con \cmd{netsh interface ipv4 show excludedportrange protocol=tcp} y, si está reservado, cambiar el mapeo a \cmd{"4850:50000"} y usar \nolinkurl{opc.tcp://localhost:4850} en UaExpert.
+\end{itemize}
+
+Recomendación adicional: clonar el proyecto dentro del sistema de archivos de WSL (\cmd{\textbackslash\textbackslash wsl\$\textbackslash Ubuntu\textbackslash home\textbackslash <usuario>\textbackslash ot-lab}) y ejecutar los comandos desde el terminal de Ubuntu; el rendimiento de E/S es muy superior al de \cmd{/mnt/c}.
 
 % -----------------------------------------------------------------------------
 \section{Estructura del proyecto}

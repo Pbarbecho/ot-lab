@@ -120,7 +120,8 @@ services:
     restart: unless-stopped
     # La imagen no tiene ENTRYPOINT y el binario no está en PATH: ruta completa y -f (foreground)
     command: ["/home/conpot/.local/bin/conpot", "--template", "default", "--logfile", "/var/log/conpot/conpot.log", "-f", "--temp_dir", "/tmp"]
-    ports: ["10502:502", "10102:102", "10080:80", "10161:161/udp"]
+    # La plantilla default de Conpot NO usa los puertos estándar: Modbus 5020, S7comm 10201, HTTP 8800, SNMP 16100 (ver conpot.log). HTTP en 18800 porque Chrome bloquea el 10080 (ERR_UNSAFE_PORT)
+    ports: ["10502:5020", "10102:10201", "18800:8800", "10161:16100/udp"]
     networks:
       ot-lab: { ipv4_address: 172.28.0.90 }
 

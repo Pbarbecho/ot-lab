@@ -15,7 +15,7 @@ docker compose ps                 # todos "Up" (Ignition tarda 1-3 min)
 docker compose logs -f ignition
 ```
 
-Servicios web: OpenPLC :8080 (openplc/openplc) · Ignition :8088 (admin/lab1234!) · FUXA :1881 · Node-RED :1880 · Conpot :10080 · MQTT :1883 · OPC UA :4840 y :50000 · Modbus :502 y :5020
+Servicios web: OpenPLC :8080 (openplc/openplc) · Ignition :8088 (admin/lab1234!) · FUXA :1881 · Node-RED :1880 · Conpot :18800 · MQTT :1883 · OPC UA :4840 y :50000 · Modbus :502 y :5020
 
 Nota Linux: la versión `.bak` es la original y tiene dos fallos conocidos (Conpot `command` y bind mount de Ignition, ver guía §4.7); la versión macOS funciona también en Linux y es la recomendada.
 

@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard OT-Lab · Práctica 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --navy-900:#001a3a; --navy:#002856; --signal:#0a56ae; --cyan:#5fd4ff;
+    --bg:#f6f8f7; --card:#fff; --soft:#f2f5f8; --line:#e1e5e9; --line-strong:#b9c1ca;
+    --ink:#002856; --body:#0f1b2a; --gris:#5b6675; --amber:#b26b00; --ok:#1f8a4c; --bad:#c0392b;
+    --sans:"Fira Sans","Segoe UI",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font:16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+  a{color:var(--signal);text-decoration:none} a:hover{text-decoration:underline}
+  code,pre,kbd{font-family:var(--mono)}
+  code{font-size:.88em;background:var(--soft);border:1px solid var(--line);padding:0 .3em}
+  pre{background:var(--navy-900);color:#dce7f3;padding:14px 16px;overflow-x:auto;font-size:13.5px;line-height:1.55;border-left:3px solid var(--cyan);margin:12px 0}
+  pre .c{color:#8aa4c4}
+  img{max-width:100%;display:block;border:1px solid var(--line-strong)}
+  figure{margin:18px 0}
+  figcaption{font-size:13.5px;color:var(--gris);margin-top:6px}
+
+  header.top{background:var(--navy);color:#fff}
+  header.top .in{max-width:1080px;margin:0 auto;padding:22px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  header.top .logo{height:24px;border:0}
+  header.top .sep{width:1px;height:34px;background:rgba(255,255,255,.25)}
+  .lbl{font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--signal)}
+  header.top .lbl{color:var(--cyan)}
+  header.top h1{margin:2px 0 0;font-size:24px;font-weight:600;letter-spacing:-.015em}
+
+  .hero{background:var(--navy);color:#dce7f3;border-top:1px solid rgba(255,255,255,.12)}
+  .hero .in{max-width:1080px;margin:0 auto;padding:28px 24px 34px}
+  .hero p{max-width:760px;margin:0 0 18px;font-size:17.5px;font-weight:300}
+  .hero img{border-color:rgba(255,255,255,.25)}
+
+  nav.toc{position:sticky;top:0;z-index:5;background:rgba(246,248,247,.95);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.toc .in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;overflow-x:auto}
+  nav.toc a{font:600 13px var(--sans);color:var(--gris);padding:11px 12px;white-space:nowrap;border-bottom:2px solid transparent}
+  nav.toc a:hover{color:var(--ink);border-bottom-color:var(--ink);text-decoration:none}
+
+  main{max-width:1080px;margin:0 auto;padding:10px 24px 40px}
+  section{padding:30px 0 10px;border-bottom:1px solid var(--line)}
+  section:last-child{border-bottom:0}
+  h2{margin:4px 0 14px;color:var(--ink);font-size:28px;font-weight:700;letter-spacing:-.015em;line-height:1.15}
+  h3{margin:24px 0 8px;color:var(--ink);font-size:19px;font-weight:600}
+  p{margin:0 0 12px;max-width:820px}
+  ul,ol{margin:0 0 14px;padding-left:22px;max-width:820px} li{margin:3px 0}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .grid-side{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+  @media (max-width:820px){ .grid2,.grid-side{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);padding:16px 18px}
+  .card h3{margin-top:0}
+  .opt{border-top:3px solid var(--ink)} .opt.alt{border-top-color:var(--signal)}
+
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0 16px;background:var(--card)}
+  th{text-align:left;font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--gris);border-bottom:1px solid var(--ink);padding:8px 10px}
+  td{border-bottom:1px solid var(--line);padding:8px 10px;vertical-align:top}
+  td code{white-space:nowrap}
+
+  .note{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--signal);padding:12px 16px;margin:14px 0;max-width:860px}
+  .note.warn{border-left-color:var(--bad)} .note.ok{border-left-color:var(--ok)}
+  .note b{color:var(--ink)}
+  .keys{display:flex;flex-wrap:wrap;gap:0;margin:8px 0 14px}
+  .keys span{border:1px solid var(--line-strong);margin:0 -1px -1px 0;padding:6px 12px;font:600 13px var(--sans);background:var(--card)}
+  .sw{display:inline-block;width:13px;height:13px;border:2px solid;vertical-align:-2px;margin-right:6px}
+  .sw.d{border-style:dashed}
+
+  .arch{background:var(--navy);border:1px solid var(--navy-900);padding:12px}
+  .arch svg{width:100%;height:auto;display:block}
+  .arch text{font-family:var(--sans)}
+
+  footer{border-top:1px solid var(--line);background:var(--card)}
+  footer .in{max-width:1080px;margin:0 auto;padding:20px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;color:var(--gris);font-size:13.5px}
+  footer img{height:46px;border:0}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="in">
+  <img class="logo" src="marca/ucuenca-deet-blanco.svg" alt="Universidad de Cuenca · DEET">
+  <span class="sep"></span>
+  <div><div class="lbl">Taller 2 · Laboratorio OT · Práctica 1</div><h1>Dashboard Modbus TCP, pymodbus y OpenPLC</h1></div>
+</div></header>
+
+<div class="hero"><div class="in">
+  <p>Un panel web que ejecuta las peticiones de la práctica <b>dentro de Docker</b> y muestra, en el mismo lugar,
+    lo que pasó en el proceso (LEDs, sensores, consignas) y lo que viajó por la red (cada trama Modbus, byte a byte).
+    Cubre las láminas 19–36: Python como maestro, los retos de bits y palabras, y OpenPLC sondeando el simulador.</p>
+  <figure><img src="docs/img/vista-general.png" alt="Vista general del dashboard en el reto de bits">
+    <figcaption style="color:#a9bdd4">Reto de la lámina 30: la parada de emergencia viajó en una sola trama FC 15 (byte 0x16) y la topología lo refleja.</figcaption></figure>
+</div></div>
+
+<nav class="toc"><div class="in">
+  <a href="#arranque">Arranque</a><a href="#arquitectura">Arquitectura</a><a href="#uso">Uso</a>
+  <a href="#openplc">OpenPLC · lámina 36</a><a href="#evidencia">Evidencia</a><a href="#integracion">Integración</a>
+  <a href="#problemas">Problemas</a><a href="#archivos">Archivos</a>
+</div></nav>
+
+<main>
+
+<section id="arranque">
+  <div class="lbl">01 · Puesta en marcha</div>
+  <h2>Dos formas de arrancarlo</h2>
+  <div class="grid2">
+    <div class="card opt">
+      <h3>A · Junto con el laboratorio (recomendada)</h3>
+      <p>El dashboard es un servicio más de Docker y arranca solo cada vez que arranca Docker. Se <b>suma</b> al compose del laboratorio con un segundo <code>-f</code>, sin modificarlo.</p>
+<pre><span class="c"># macOS / WSL (desde la carpeta ot-lab)</span>
+docker compose -f docker-compose.yml \
+  -f docker-compose.dashboard.yml up -d --build
+
+<span class="c"># Windows (PowerShell)</span>
+docker compose -f docker-compose.windows.yml `
+  -f docker-compose.dashboard.yml up -d --build</pre>
+      <p>Abrir <a href="http://localhost:8000">http://localhost:8000</a>.</p>
+    </div>
+    <div class="card opt alt">
+      <h3>B · En el PC, sin contenedor</h3>
+      <p>Útil para desarrollar o para usar el botón <b>Abrir Wireshark en vivo</b>, que necesita abrir una ventana en el escritorio.</p>
+<pre><span class="c"># requiere Python 3 (solo biblioteca estándar) y el CLI de docker</span>
+cd ot-lab/dashboard
+python app.py</pre>
+      <p>Usa el mismo puerto 8000: detén el contenedor antes (<code>docker stop ot-dashboard</code>).</p>
+    </div>
+  </div>
+  <div class="note"><b>Primera vez:</b> el dashboard crea el contenedor <code>ot-client</code> (python:3.12-slim + pymodbus 3.12.1) en la red <code>ot-lab_ot-lab</code>,
+    el mismo cliente de la lámina 22. Para capturar tráfico descarga <code>nicolaka/netshoot</code> (≈ 400 MB) la primera vez que se usa.</div>
+  <h3>Quitarlo</h3>
+<pre>docker compose -f docker-compose.yml -f docker-compose.dashboard.yml rm -sf dashboard</pre>
+</section>
+
+<section id="arquitectura">
+  <div class="lbl">02 · Arquitectura</div>
+  <h2>Qué hace cada clic</h2>
+  <div class="arch">
+    <svg viewBox="0 0 1000 400" role="img" aria-label="Diagrama de arquitectura">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fd4ff"/></marker>
+        <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffb547"/></marker>
+      </defs>
+      <!-- PC -->
+      <rect x="20" y="30" width="190" height="88" fill="none" stroke="#a9bdd4" stroke-dasharray="5 4"/>
+      <text x="36" y="56" fill="#5fd4ff" font-size="12" font-family="JetBrains Mono" letter-spacing="1.5">SU PC</text>
+      <text x="36" y="82" fill="#fff" font-size="16" font-weight="600">Navegador</text>
+      <text x="36" y="103" fill="#a9bdd4" font-size="13">localhost:8000</text>
+      <!-- dashboard -->
+      <rect x="20" y="170" width="190" height="120" fill="#001a3a" stroke="#fff"/>
+      <text x="36" y="196" fill="#5fd4ff" font-size="12" font-family="JetBrains Mono" letter-spacing="1.5">CONTENEDOR</text>
+      <text x="36" y="222" fill="#fff" font-size="16" font-weight="600">ot-dashboard</text>
+      <text x="36" y="244" fill="#a9bdd4" font-size="13">Python · docker CLI</text>
+      <text x="36" y="264" fill="#a9bdd4" font-size="13">/var/run/docker.sock</text>
+      <line x1="115" y1="118" x2="115" y2="168" stroke="#5fd4ff" stroke-width="2" marker-end="url(#a)"/>
+      <!-- red ot-lab -->
+      <rect x="290" y="20" width="690" height="360" fill="none" stroke="#5fd4ff" stroke-opacity=".5"/>
+      <text x="966" y="370" text-anchor="end" fill="#5fd4ff" font-size="12" font-family="JetBrains Mono" letter-spacing="1.2">RED ot-lab · 172.28.0.0/24</text>
+      <!-- ot-client -->
+      <rect x="320" y="80" width="190" height="96" fill="#001a3a" stroke="#fff"/>
+      <text x="336" y="106" fill="#fff" font-size="16" font-weight="600">ot-client</text>
+      <text x="336" y="128" fill="#a9bdd4" font-size="13">maestro · pymodbus</text>
+      <text x="336" y="148" fill="#a9bdd4" font-size="13">172.28.0.2</text>
+      <!-- modbus-sim -->
+      <rect x="760" y="140" width="190" height="110" fill="#001a3a" stroke="#ffb547"/>
+      <text x="776" y="166" fill="#ffb547" font-size="16" font-weight="600">modbus-sim</text>
+      <text x="776" y="188" fill="#a9bdd4" font-size="13">esclavo · server.json</text>
+      <text x="776" y="208" fill="#a9bdd4" font-size="13">172.28.0.30:5020</text>
+      <!-- openplc -->
+      <rect x="320" y="250" width="190" height="96" fill="#001a3a" stroke="#fff"/>
+      <text x="336" y="276" fill="#fff" font-size="16" font-weight="600">openplc</text>
+      <text x="336" y="298" fill="#a9bdd4" font-size="13">maestro cíclico · 100 ms</text>
+      <text x="336" y="318" fill="#a9bdd4" font-size="13">172.28.0.10 · panel :8080</text>
+      <!-- netshoot -->
+      <rect x="560" y="300" width="170" height="60" fill="none" stroke="#5fd4ff" stroke-dasharray="5 4"/>
+      <text x="574" y="324" fill="#5fd4ff" font-size="14" font-weight="600">netshoot · tcpdump</text>
+      <text x="574" y="344" fill="#a9bdd4" font-size="12.5">escucha el puente</text>
+      <!-- flechas Modbus -->
+      <path d="M510,128 C620,128 650,180 758,185" fill="none" stroke="#ffb547" stroke-width="2.5" marker-end="url(#b)"/>
+      <text x="560" y="118" fill="#ffb547" font-size="13" font-family="JetBrains Mono">FC 01–16</text>
+      <path d="M510,298 C620,298 650,230 758,215" fill="none" stroke="#ffb547" stroke-width="2.5" marker-end="url(#b)"/>
+      <text x="560" y="276" fill="#ffb547" font-size="13" font-family="JetBrains Mono">FC 02·15·04·03·16</text>
+      <!-- flechas control -->
+      <path d="M210,205 C260,205 270,128 318,128" fill="none" stroke="#5fd4ff" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a)"/>
+      <text x="228" y="226" fill="#5fd4ff" font-size="12">docker exec</text>
+      <path d="M210,262 C260,262 270,298 318,298" fill="none" stroke="#5fd4ff" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a)"/>
+      <text x="222" y="310" fill="#5fd4ff" font-size="12">panel web</text>
+      <path d="M210,280 C380,380 520,380 558,340" fill="none" stroke="#5fd4ff" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a)"/>
+      <path d="M210,182 C240,30 820,40 850,138" fill="none" stroke="#5fd4ff" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a)"/>
+      <text x="560" y="62" fill="#5fd4ff" font-size="12">docker logs · server.json + restart</text>
+    </svg>
+  </div>
+  <ol>
+    <li><b>Ejecuta</b> la sentencia de pymodbus con <code>docker exec</code> en <code>ot-client</code>, el maestro de la lámina 22. Guarda la consola <code>&gt;&gt;&gt;</code> y las <b>tramas reales</b> TX/RX (MBAP + PDU).</li>
+    <li><b>Lee</b> <code>docker logs modbus-sim</code> desde ese instante: lo que vio el esclavo (<code>recv</code>/<code>send</code>).</li>
+    <li><b>Lee el estado</b> de las 4 tablas dentro de <code>modbus-sim</code> por loopback, así esas lecturas no aparecen en la captura, y dibuja la topología.</li>
+    <li><b>Compara</b> la predicción de la lámina (PDU y valor) con lo capturado: ✅ o ❌.</li>
+  </ol>
+  <p>Las capturas de red (Wireshark en vivo, <i>Grabar pcap</i>, tabla de la lámina 36) usan tcpdump en el <b>puente de la red ot-lab</b>
+    y no en el <code>eth0</code> de un contenedor. Así sobreviven a «Cargar tablero», que reinicia <code>modbus-sim</code>.</p>
+</section>
+
+<section id="uso">
+  <div class="lbl">03 · Uso</div>
+  <h2>Escenarios, topología, generador y captura</h2>
+  <p>Cada pestaña es una parte de la práctica. «<b>Paso 1 · Cargar tablero</b>» escribe ese tablero en <code>modbus/server.json</code>
+    (clave = dirección + 1, lámina 20) y reinicia el simulador, como pide cada reto.</p>
+  <table>
+    <tr><th>Láminas</th><th>Pestaña</th><th>Qué se practica</th></tr>
+    <tr><td>19–20</td><td>server.json original · desfase +1</td><td>Por qué la clave «0» es inalcanzable: <code>read_holding_registers(0, 3)</code> → <code>[25, 72, 0]</code></td></tr>
+    <tr><td>21–29</td><td>PLC del ejemplo</td><td>Coils (FC 01/05/15), pulsador (FC 02), medidas (FC 04), consignas (FC 03/06/16); reto FC 15 con byte <code>0x03</code></td></tr>
+    <tr><td>30</td><td>Reto · varios bits</td><td>Leer 4 entradas (byte <code>0x09</code>), arrancar la bomba, parada de emergencia en una trama (byte <code>0x16</code>)</td></tr>
+    <tr><td>31</td><td>Reto · varias palabras</td><td>Escalas ×10, «modo verano» en una FC 16 (PDU de 16 bytes), valores fuera de rango, desborde a HR 7</td></tr>
+    <tr><td>32</td><td>Captura completa</td><td>Las 9 peticiones; la tabla de la lámina 32 (FC, dónde van los datos, PDU, valor) se llena sola</td></tr>
+    <tr><td>33–36</td><td>OpenPLC · sondeo y lógica</td><td>OpenPLC como maestro cíclico, lógica de umbrales y tabla de la lámina 36 en vivo</td></tr>
+  </table>
+
+  <div class="grid-side">
+    <figure><img src="docs/img/topologia.png" alt="Topología">
+      <figcaption><b>Topología.</b> Campo → PLC (4 tablas) → salidas, con el estado leído del esclavo. Las flechas se iluminan con cada trama.</figcaption></figure>
+    <figure><img src="docs/img/generador.png" alt="Generador de tramas">
+      <figcaption><b>Generador de tramas.</b> Elija la FC y arme el byte bit a bit (o escriba <code>0x16</code>). Predice la PDU antes de enviar.</figcaption></figure>
+  </div>
+  <p><b>Colores:</b>
+    <span class="sw" style="border-color:#b26b00"></span>coil, un bit de lectura/escritura ·
+    <span class="sw d" style="border-color:#b26b00"></span>discrete input, un bit de solo lectura ·
+    <span class="sw" style="border-color:#0a56ae"></span>holding register, una palabra de lectura/escritura ·
+    <span class="sw d" style="border-color:#0e7490"></span>input register, una palabra de solo lectura.</p>
+  <figure><img src="docs/img/captura-python.png" alt="Captura de una ejecución">
+    <figcaption><b>Captura.</b> Comprobaciones, consola del cliente y tabla de la lámina 32. Las tramas completas y el log del esclavo se despliegan.</figcaption></figure>
+  <div class="note"><b>Secciones plegables:</b> clic en el título de cada bloque. Lo secundario (campo simulado, pruebas, Monitoring, detalles) empieza plegado
+    y la página recuerda lo que abrió. Wireshark, pcap y exportar están en el menú <b>Herramientas</b>.</div>
+</section>
+
+<section id="openplc">
+  <div class="lbl">04 · OpenPLC · láminas 33–36</div>
+  <h2>El maestro deja de ser Python</h2>
+  <p>En esta pestaña OpenPLC sondea los tableros de las láminas 30–31 cada 100 ms y aplica una lógica de umbrales
+    (<code>openplc/tableros.st</code>). El botón <b>Configurar OpenPLC</b> hace los pasos de la lámina 34 en el panel web:</p>
+  <div class="keys"><span>login</span><span>subir y compilar tableros.st</span><span>Slave Device ID 1 · 172.28.0.30:5020</span><span>DI 0/4 · Coils 0/5 · IR 0/4 · HR read 0/5 · HR write 5/3</span><span>Start PLC</span></div>
+  <figure><img src="docs/img/vista-openplc.png" alt="Pestaña OpenPLC">
+    <figcaption>Consigna T bajada a 22,0 °C con una FC 06: como 23,5 °C &gt; 22,0 °C, el PLC enciende el LED rojo y el ventilador en el ciclo siguiente.</figcaption></figure>
+  <div class="grid-side">
+    <figure><img src="docs/img/tabla-lamina36.png" alt="Tabla de la lámina 36 en vivo">
+      <figcaption><b>Tabla de la lámina 36 en vivo.</b> 5 Query por ciclo (02 → 15 → 04 → 03 → 16), unos 104 ms, una sola conexión TCP y TID consecutivo.</figcaption></figure>
+    <figure><img src="docs/img/logica-operador.png" alt="Lógica y operador">
+      <figcaption><b>Lógica en vivo</b> y consignas del operador.</figcaption></figure>
+  </div>
+  <h3>Lógica de tableros.st</h3>
+  <ul>
+    <li><b>LED rojo</b> = temperatura (IR 0) &gt; consigna T (HR 0), o emergencia</li>
+    <li><b>Ventilador</b> = CO₂ (IR 2) &gt; umbral CO₂ (HR 2), o alarma de temperatura</li>
+    <li><b>LED verde</b> = marcha y no paro y no emergencia y sin alarma · <b>Bomba</b> = marcha y no paro y no emergencia y puerta cerrada · <b>Sirena</b> = emergencia</li>
+    <li>El PLC escribe su estado en <b>HR 5–7</b> (estado, exceso de temperatura, contador de ciclos) y no pisa las consignas HR 0–4.</li>
+  </ul>
+  <div class="note warn"><b>Con el PLC en Running, las salidas son del PLC.</b> Un <code>write_coil</code> desde Python dura un ciclo (~100 ms):
+    OpenPLC vuelve a escribir los coils con su FC 15. Para encender el LED rojo, cambie la <b>condición</b> (consigna o campo) o pulse <b>Stop PLC</b>.
+    Las pestañas de Python muestran este aviso.</div>
+  <h3>Qué se puede cambiar</h3>
+  <table>
+    <tr><th>Tabla</th><th>Cómo</th><th>Efecto</th></tr>
+    <tr><td>HR 0–4 (consignas)</td><td>FC 06/16 desde el generador o el panel «Operador»</td><td>Se mantiene; cambia la decisión del PLC</td></tr>
+    <tr><td>IR (sensores) y DI (pulsadores)</td><td>Panel «Campo simulado»: server.json + restart</td><td>Modbus no tiene función para escribirlas: solo lectura</td></tr>
+    <tr><td>Coils 0–4 y HR 5–7</td><td>—</td><td>Las escribe el PLC en cada ciclo</td></tr>
+  </table>
+  <p>«<b>Detener modbus-sim 5 s</b>» responde a la pregunta de la lámina 36: aparece un hueco en el sondeo, OpenPLC abre una conexión TCP nueva al volver y el TID sigue sin reiniciarse.</p>
+</section>
+
+<section id="evidencia">
+  <div class="lbl">05 · Entregables</div>
+  <h2>Evidencia</h2>
+  <ul>
+    <li><b>Herramientas → Exportar evidencia .md:</b> todo el historial en Markdown (consola, tablas de las láminas 32 y 36, tramas, log del esclavo, estado). Listo para el informe.</li>
+    <li><b>Herramientas → Grabar pcap:</b> guarda <code>ot-lab/captures/&lt;nombre&gt;.pcapng</code> (por ejemplo <code>tableros.pcapng</code> de la lámina 32), para abrir en Wireshark.</li>
+    <li><b>Tabla de la lámina 36 → Detener y guardar pcap:</b> <code>captures/openplc.pcapng</code>.</li>
+    <li><b>Wireshark en vivo</b> (lámina 25): con el dashboard en el PC, abre Wireshark leyendo la tubería. En el contenedor, el botón devuelve el comando para WSL:</li>
+  </ul>
+<pre>docker run --rm --net host nicolaka/netshoot tcpdump -i br-&lt;id de la red ot-lab&gt; -U -w - "tcp port 5020" \
+  | wireshark -k -i - -o mbtcp.tcp.port:5020</pre>
+</section>
+
+<section id="integracion">
+  <div class="lbl">06 · Sin romper nada</div>
+  <h2>Cómo se integra con el laboratorio</h2>
+  <ul>
+    <li><b>No modifica</b> <code>docker-compose.yml</code>, <code>docker-compose.windows.yml</code> ni ningún servicio. Todo está en <code>dashboard/</code> y en <code>docker-compose.dashboard.yml</code>, que se suma con <code>-f</code>.</li>
+    <li><b>Arranca con Docker:</b> <code>restart: unless-stopped</code>, igual que el resto.</li>
+    <li><b>No crea redes</b> ni ocupa IPs de 172.28.0.0/24: usa <code>network_mode: bridge</code> y trabaja por el socket de Docker.</li>
+    <li><b>Solo local:</b> se publica en <code>127.0.0.1:8000</code>. El puerto se cambia con <code>DASHBOARD_PORT=8001</code>.</li>
+    <li>Solo escribe en <code>modbus/server.json</code> (al cargar un tablero, con LF y copia <code>server.json.bak</code> la primera vez) y en <code>captures/</code>. En OpenPLC, «Configurar» reemplaza el programa activo y los Slave Devices que apuntan a <code>172.28.0.30:5020</code>.</li>
+  </ul>
+  <div class="note warn"><b>Seguridad:</b> el contenedor monta <code>/var/run/docker.sock</code> (control total de Docker) y su API ejecuta Python dentro de <code>ot-client</code>.
+    Es una herramienta de laboratorio: no lo publique fuera de <code>127.0.0.1</code>.</div>
+</section>
+
+<section id="problemas">
+  <div class="lbl">07 · Solución de problemas</div>
+  <h2>Problemas conocidos</h2>
+  <table>
+    <tr><th>Síntoma</th><th>Causa y solución</th></tr>
+    <tr><td><code>pcap_loop: The interface disappeared</code> en Wireshark</td><td>La captura estaba pegada a <code>--net container:modbus-sim</code> y «Cargar tablero» lo reinició. Capture en el puente (<code>--net host … -i br-…</code>), como hace el dashboard.</td></tr>
+    <tr><td>El LED se enciende y se apaga solo</td><td>OpenPLC en Running escribe los coils cada 100 ms. Cambie la consigna o pulse Stop PLC.</td></tr>
+    <tr><td><code>modbus-sim</code>/<code>mosquitto</code> en <i>Exited (127)</i> tras reiniciar el PC</td><td>El laboratorio se levantó desde WSL y monta rutas <code>/mnt/c/…</code>: arranque Ubuntu (<code>wsl -d Ubuntu</code>) y <code>docker start modbus-sim mosquitto</code>.</td></tr>
+    <tr><td>Wireshark no abre y Docker deja de responder</td><td>Quedó un <code>ot-ws</code> sin Wireshark al otro lado. El dashboard lo detecta y lo borra; a mano: <code>docker rm -f ot-ws</code>.</td></tr>
+    <tr><td><code>localhost:8080</code> muestra otra página</td><td>En Windows el puerto 8080 lo comparten varios procesos (p. ej. <code>ApplicationWebServer.exe</code>). El dashboard entra al panel de OpenPLC desde la red Docker.</td></tr>
+  </table>
+</section>
+
+<section id="archivos">
+  <div class="lbl">08 · Archivos</div>
+  <h2>Estructura</h2>
+<pre>ot-lab/
+├── docker-compose.dashboard.yml   <span class="c"># servicio opcional; se suma con -f</span>
+└── dashboard/
+    ├── app.py              <span class="c"># servidor HTTP (stdlib) + docker exec/logs/run</span>
+    ├── scenarios.py        <span class="c"># escenarios de las láminas 19–36: tableros, pasos y predicciones</span>
+    ├── openplc_ctl.py      <span class="c"># panel de OpenPLC + captura en vivo y tabla de la lámina 36</span>
+    ├── index.html          <span class="c"># interfaz (identidad DEET)</span>
+    ├── openplc/tableros.st <span class="c"># programa IEC 61131-3 con la lógica de umbrales</span>
+    ├── marca/              <span class="c"># logos oficiales UCUENCA | DEET</span>
+    ├── Dockerfile
+    └── README.md · README.html · docs/img/</pre>
+  <p><b>Agregar una práctica:</b> añada un diccionario a <code>SCENARIOS</code> en <code>scenarios.py</code> con <code>board</code>, <code>labels</code> y <code>steps</code>
+    (cada paso con sus sentencias y, si quiere, las predicciones <code>checks</code>). La página se arma sola.</p>
+</section>
+
+</main>
+
+<footer><div class="in">
+  <img src="marca/grupo-electronica-control.svg" alt="Grupo de investigación Electrónica y Control">
+  <span>Departamento de Eléctrica, Electrónica y Telecomunicaciones · Universidad de Cuenca<br>Taller 2 · Prácticas guiadas OT-Lab</span>
+</div></footer>
+</body>
+</html>

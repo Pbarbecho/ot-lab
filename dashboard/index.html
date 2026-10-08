@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio OT · DEET</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+  /* ============================================================
+     Identidad DEET · Universidad de Cuenca (deet.ucuenca.edu.ec)
+     «Catálogo industrial»: los equipos son protagonistas en vitrinas
+     azul marino UC; lo demás se ordena con filetes de 1 px, esquinas
+     rectas y sin sombras. Fira Sans (sustituto libre de Meta Pro) y
+     JetBrains Mono para datos y tramas.
+     ============================================================ */
+  :root{
+    --navy-900:#001a3a; --navy-700:#002856; --navy-600:#0a3d75; --signal:#0a56ae; --cyan:#5fd4ff;
+    --navy-50:#f2f5f8; --navy-100:#e6ecf3;
+    --bg:#f6f8f7; --card:#fff; --soft:#f2f5f8; --line:#e1e5e9; --line-strong:#b9c1ca;
+    --ink:#002856; --body:#0f1b2a; --gris:#5b6675; --gris-uc:#6f6f6f;
+    --ok:#1f8a4c; --bad:#c0392b;
+    /* tablas Modbus: bits = ámbar, palabras = azules; solo lectura = filete punteado */
+    --co:#b26b00; --di:#b26b00; --hr:#0a56ae; --ir:#0e7490;
+    --sans:"Fira Sans","Segoe UI",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+    --ease:cubic-bezier(.23,1,.32,1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--body);font:14.5px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+       background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+       background-size:48px 48px;background-attachment:fixed}
+  body::before{content:"";position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 82%,transparent);pointer-events:none;z-index:-1}
+  ::selection{background:var(--signal);color:#fff}
+  code,pre,.mono{font-family:var(--mono)}
+  a{color:var(--signal)}
+
+  /* Botones rectos; el relleno entra como barrido */
+  button{font:600 13.5px var(--sans);letter-spacing:.01em;cursor:pointer;border:1px solid var(--ink);color:var(--ink);border-radius:0;padding:6px 12px;
+    background:linear-gradient(var(--navy-100),var(--navy-100)) left/0% 100% no-repeat,transparent;
+    transition:background-size .35s var(--ease),color .2s,border-color .2s,transform .16s var(--ease)}
+  button:hover:not(:disabled){background-size:100% 100%}
+  button:active:not(:disabled){transform:scale(.97)}
+  button.primary{color:#fff;border-color:var(--ink);background:linear-gradient(var(--signal),var(--signal)) left/0% 100% no-repeat,var(--ink)}
+  button:disabled{opacity:.45;cursor:wait}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  input,select{font:inherit;color:var(--body);background:var(--card);border:1px solid var(--line-strong);border-radius:0;padding:5px 8px}
+  input:focus,select:focus{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);outline:none}
+
+  /* Cabecera institucional */
+  header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 24px;background:var(--navy-700);color:#fff;border-bottom:1px solid var(--navy-900)}
+  header .logo{height:22px;display:block}
+  header .sep{width:1px;height:30px;background:rgba(255,255,255,.25)}
+  header .ttl{display:flex;flex-direction:column;line-height:1.15}
+  header .lbl{font:600 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
+  header h1{margin:0;font-size:17px;font-weight:600;color:#fff;letter-spacing:-.01em}
+  header button{color:#fff;border-color:rgba(255,255,255,.45);background:linear-gradient(rgba(255,255,255,.12),rgba(255,255,255,.12)) left/0% 100% no-repeat,transparent;font-size:12.5px;padding:5px 10px}
+  header input{background:transparent;color:#fff;border-color:rgba(255,255,255,.35);font-size:12.5px}
+  header input::placeholder{color:#a9bdd4}
+  .chip{font:12px var(--mono);padding:3px 9px;border:1px solid var(--line);border-radius:0}
+  header .chip{border-color:rgba(255,255,255,.3);color:#cfe0f3}
+  .chip.up{color:#7ee2a8!important;border-color:#7ee2a8!important} .chip.down{color:#ff9a8f!important;border-color:#ff9a8f!important}
+  .chip.rec{color:#fff!important;background:var(--bad);border-color:var(--bad)!important;animation:late 1.4s ease-in-out infinite}
+  @keyframes late{50%{opacity:.55}}
+  .grow{flex:1}
+  .pcap{display:flex;gap:6px;align-items:center}
+  .pcap input{width:120px}
+
+  /* Pestañas como teclas */
+  nav{display:flex;gap:0;padding:14px 24px 0;flex-wrap:wrap}
+  nav button{border:1px solid var(--line-strong);margin:0 -1px -1px 0;color:var(--gris);background-color:var(--card);display:flex;gap:8px;align-items:baseline;padding:8px 14px;font-weight:600}
+  nav button small{font:11px var(--mono);opacity:.8}
+  nav button.sel{background:var(--ink);color:#fff;border-color:var(--ink);position:relative;z-index:1}
+  nav button .dotact{width:7px;height:7px;background:#7ee2a8;display:inline-block;border:1px solid var(--ok)}
+
+  main{display:grid;grid-template-columns:minmax(330px,430px) 1fr;gap:18px;padding:16px 24px 30px;max-width:1700px}
+  @media (max-width:980px){ main{grid-template-columns:1fr;padding:12px 16px} nav{padding:12px 16px 0} header{padding:10px 16px} }
+  section{position:relative;background:var(--card);border:1px solid var(--line);border-radius:0;padding:16px 18px;margin-bottom:18px;min-width:0;
+    background-image:linear-gradient(var(--ink),var(--ink));background-repeat:no-repeat;background-size:0 2px;transition:background-size .45s var(--ease),border-color .25s}
+  @media (hover:hover) and (pointer:fine){ section:not(.vitrina):hover{background-size:100% 2px;border-color:var(--line-strong)} }
+  h2{margin:0 0 12px;font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--signal);display:flex;align-items:center;gap:8px}
+  h2 .r{margin-left:auto;display:flex;gap:6px;text-transform:none;letter-spacing:0;font-family:var(--sans)}
+  h2 button{font-size:12px;padding:3px 9px}
+  .scn h3{margin:0 0 6px;color:var(--ink);font-size:21px;font-weight:700;letter-spacing:-.015em}
+  .scn p{margin:0 0 12px;color:var(--gris)}
+  .scn .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .badge{font-size:12.5px;font-weight:600}
+  .badge.on{color:var(--ok)} .badge.off{color:var(--gris)}
+  details summary{cursor:pointer;color:var(--gris);font-size:12.5px;margin-top:10px}
+  pre.json{background:var(--soft);border:1px solid var(--line);padding:8px 10px;font-size:12px;overflow:auto;margin:6px 0 0}
+
+  .step{border:1px solid var(--line);padding:10px 12px;margin-bottom:8px;background:var(--card)}
+  .step .hd{display:flex;gap:8px;align-items:flex-start}
+  .step .hd b{flex:1;color:var(--ink);font-size:13.5px}
+  .step .st{font:600 12.5px var(--mono);white-space:nowrap;color:var(--ok)}
+  .step code{display:block;font-size:12px;color:var(--body);background:var(--soft);padding:6px 9px;margin-top:6px;white-space:pre-wrap;word-break:break-word;border-left:2px solid var(--line-strong)}
+  .step .note{font-size:12.5px;color:var(--gris);margin-top:6px}
+  .step .pred{font-size:12px;margin-top:5px;font-family:var(--mono);color:var(--gris)}
+  .step.done{box-shadow:inset 3px 0 0 var(--ok)} .step.fail{box-shadow:inset 3px 0 0 var(--bad)}
+  .play{padding:3px 10px;font-size:13px}
+
+  /* Topología: vitrina azul marino UC (el equipo es el protagonista) */
+  section.vitrina{background:var(--navy-700);border-color:var(--navy-900);color:#dce7f3;
+    background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+    background-size:24px 24px;background-repeat:repeat;
+    --co:#ffb547; --di:#ffb547; --hr:#8fbaff; --ir:#5fd4ff; --ink:#fff; --gris:#a9bdd4; --card:transparent; --soft:rgba(255,255,255,.06); --line:rgba(255,255,255,.14)}
+  section.vitrina h2{color:var(--cyan)}
+  section.vitrina h2 button{color:#fff;border-color:rgba(255,255,255,.45);background-color:transparent}
+  .topo{position:relative;display:grid;grid-template-columns:1fr 250px 1fr;gap:44px;align-items:start}
+  @media (max-width:760px){ .topo{grid-template-columns:1fr;gap:14px} .topo svg{display:none} }
+  .topo svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .colh{font:600 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--gris);margin-bottom:8px}
+  .cards{display:flex;flex-direction:column;gap:8px}
+  .card{position:relative;display:flex;align-items:center;gap:10px;border:1px solid var(--t);border-radius:0;padding:7px 10px;background:rgba(0,26,58,.55);transition:transform .25s var(--ease),box-shadow .25s}
+  .card.ro{border-style:dashed}
+  .card .ic{width:24px;height:24px;border-radius:50%;border:2px solid var(--t);flex:none;transition:all .25s}
+  .card.on .ic{background:var(--i,var(--t));border-color:var(--i,var(--t));box-shadow:0 0 16px var(--i,var(--t))}
+  .card .wv{min-width:56px;text-align:center;font:600 13px var(--mono);color:var(--t);border:1px solid var(--t);padding:2px 4px;flex:none}
+  .card .nm{font-weight:600;color:var(--ink);line-height:1.15}
+  .card .ad{font:600 11px var(--mono);color:var(--t)}
+  .card .vl{margin-left:auto;text-align:right;font:12.5px var(--mono);color:#cfe0f3}
+  .card .vl .chg{color:var(--t);font-weight:700}
+  .card.hot{transform:translateX(3px);box-shadow:inset 3px 0 0 var(--t)}
+  .plc{border:1px solid rgba(255,255,255,.55);padding:12px;background:var(--navy-900)}
+  .plc .tt{font-weight:700;color:#fff;text-align:center;letter-spacing:.01em}
+  .plc .ts{font:11px var(--mono);color:var(--gris);text-align:center;margin-bottom:8px}
+  .tbl{border:1px solid var(--t);padding:6px 9px;margin-top:7px;background:rgba(255,255,255,.03);transition:all .25s var(--ease)}
+  .tbl.dim{opacity:.35;border-style:dashed}
+  .tbl b{color:var(--t);font-size:13.5px;font-weight:600} .tbl div{font:11px var(--mono);color:var(--gris)}
+  .tbl.hot{background:color-mix(in srgb,var(--t) 22%,transparent)}
+  .t-co{--t:var(--co)} .t-di{--t:var(--di)} .t-hr{--t:var(--hr)} .t-ir{--t:var(--ir)}
+  .link{fill:none;stroke-width:1.5;opacity:.45;transition:opacity .2s}
+  .link.hot{opacity:1;stroke-width:2.5;stroke-dasharray:8 6;animation:flow .6s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-14}}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--gris);margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}
+  .legend span::before{content:"";display:inline-block;width:12px;height:12px;border:1.5px solid var(--t);margin-right:6px;vertical-align:-2px}
+  .legend span.ro::before{border-style:dashed}
+
+  /* Captura */
+  .cap-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+  .cap-h b{color:var(--ink);font-size:15px} .cap-h .mono{font-size:12px;color:var(--gris)}
+  .checks{margin:0 0 10px;padding:0;list-style:none;font-size:12.5px}
+  .checks li{font-family:var(--mono);padding:2px 0}
+  .checks .ok{color:var(--ok)} .checks .bad{color:var(--bad)}
+  pre.con,pre.log{background:var(--navy-900);color:#dce7f3;padding:10px 12px;font-size:12.3px;overflow:auto;max-height:280px;margin:0;white-space:pre-wrap;word-break:break-all;border-left:2px solid var(--cyan)}
+  pre.con .p{color:var(--cyan)} pre.con .e{color:#ff9a8f}
+  pre.log .rs{color:#ffd27a} pre.log .dc{color:#a9c4ff}
+  table.pdu{width:100%;border-collapse:collapse;font-size:12.3px;margin-bottom:10px}
+  table.pdu th{text-align:left;color:var(--gris);font:600 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--ink);padding:5px 6px}
+  table.pdu td{border-bottom:1px solid var(--line);padding:6px;vertical-align:top;font-family:var(--mono);word-break:break-word}
+  @media (hover:hover){ table.pdu tr:hover td{box-shadow:inset 0 -1px 0 var(--signal)} }
+  .wrap{overflow-x:auto}
+  table.pdu td:nth-child(2),table.pdu td:nth-child(3){white-space:nowrap}
+  .fcb{display:inline-block;white-space:nowrap;padding:1px 6px;color:#fff;background:var(--t);font:700 12px var(--mono)}
+  .fr{display:flex;gap:8px;align-items:center;font-family:var(--mono);font-size:12.3px;margin:3px 0;flex-wrap:wrap}
+  .fr .d{width:24px;font-weight:700;color:var(--gris)}
+  .fr i{font-style:normal;padding:1px 4px;margin-right:2px}
+  .m-tid{background:#6f6f6f2e}.m-pid{background:#6f6f6f1a}.m-len{background:#ffb5473a}.m-uid{background:#1f8a4c2e}
+  .m-fc{color:#fff;background:var(--t)} .m-dat{background:color-mix(in srgb,var(--t) 16%,transparent)}
+  .sub{font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--signal);margin:14px 0 6px}
+  .empty{color:var(--gris);font-size:13px}
+  .hist{display:flex;gap:0;flex-wrap:wrap}
+  .hist button{font:12px var(--mono);padding:3px 8px;border-color:var(--line-strong);color:var(--gris);margin:0 -1px -1px 0}
+  .hist button.sel{border-color:var(--ink);color:#fff;background-color:var(--ink);position:relative}
+  .hist button.bad{box-shadow:inset 0 -2px 0 var(--bad)}
+
+  /* Generador */
+  .gen .gbody{display:grid;grid-template-columns:minmax(260px,1fr) 1.25fr;gap:18px;align-items:start}
+  .gen .gbody .out{margin-top:0}
+  @media (max-width:1200px){ .gen .gbody{grid-template-columns:1fr} .gen .gbody .out{margin-top:10px} }
+  .gen .g{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:13px}
+  .gen label{color:var(--gris)}
+  .bits{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .byte{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .byte .b{width:30px;height:30px;border:1px solid var(--co);display:grid;place-items:center;font:600 11px var(--mono);cursor:pointer;user-select:none;color:var(--co);transition:background .15s}
+  .byte .b.on{background:var(--co);color:#fff}
+  .byte .b.na{border-style:dotted;opacity:.35;cursor:default}
+  .byte input{width:64px;font-family:var(--mono)}
+  .byte .bin{font:12px var(--mono);color:var(--gris)}
+  .regs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .regs input{width:80px;font-family:var(--mono)}
+  .gen .out{margin-top:10px;font:12.3px var(--mono);background:var(--soft);border-left:2px solid var(--signal);padding:8px 10px;word-break:break-word}
+  .gen .out .k{color:var(--gris)}
+
+  /* OpenPLC */
+  .plclog{font:12px var(--mono);background:var(--soft);border-left:2px solid var(--signal);padding:8px 10px;margin-top:8px;max-height:180px;overflow:auto}
+  .plclog div::before{content:"› ";color:var(--gris)}
+  .rule{display:flex;gap:10px;align-items:center;padding:7px 9px;border:1px solid var(--line);margin-bottom:6px;font-size:13px}
+  .rule .ic{width:14px;height:14px;border-radius:50%;border:2px solid var(--co);flex:none}
+  .rule.on .ic{background:var(--co);box-shadow:0 0 8px var(--co)}
+  .rule.on{border-color:var(--co);box-shadow:inset 3px 0 0 var(--co)}
+  .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:13px}
+  .ctl input[type=number]{width:86px;font-family:var(--mono)}
+  .ctl .lab{min-width:124px;color:var(--ink);font-weight:600}
+  .tog{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--di);color:var(--di);padding:4px 9px;cursor:pointer;font:600 12px var(--mono);user-select:none}
+  .tog.on{background:var(--di);color:#fff;border-style:solid}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0;margin:10px 0;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+  .stat{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 11px}
+  .stat .k{font:600 10px var(--mono);color:var(--gris);text-transform:uppercase;letter-spacing:.1em}
+  .stat .v{font-weight:300;color:var(--ink);font-size:22px;line-height:1.2;font-variant-numeric:tabular-nums}
+  .stat.bad .v{color:var(--bad)} .stat.ok .v{color:var(--ok)}
+  .chg{font-family:var(--mono);font-size:12px;padding:2px 0}
+  .pill{font:600 11.5px var(--mono);padding:2px 9px;border:1px solid}
+  .pill.run{color:var(--ok);border-color:var(--ok)}
+  .pill.stop{color:var(--bad);border-color:var(--bad)}
+  .busy{position:fixed;right:20px;bottom:20px;background:var(--navy-700);color:#fff;padding:9px 14px;font-size:13px;display:none;border-left:3px solid var(--cyan)}
+  .err{color:var(--bad);font-family:var(--mono);font-size:12.5px}
+  .vitrina .err{color:#ff9a8f}
+
+  /* Fila superior: topología + generador lado a lado */
+  .toprow{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+  .toprow > section{margin-bottom:18px}
+  .toprow .gen .gbody{grid-template-columns:1fr}
+  .toprow .gen .gbody .out{margin-top:10px}
+  .toprow .gen .g{grid-template-columns:72px 1fr}
+  .toprow .gen #free{min-width:0!important;flex:1 1 0;order:2}
+  .toprow .gen #gSend{flex:1 1 100%;order:1}
+  .toprow .gen #freeSend{order:3}
+  .toprow .byte{gap:3px}
+  .toprow .byte .b{width:25px;height:27px;font-size:10.5px}
+  .toprow .byte input{width:56px}
+  @media (max-width:1350px){ .toprow{grid-template-columns:1fr} }
+  /* topología compacta */
+  .topo{grid-template-columns:1fr 200px 1fr!important;gap:26px!important}
+  .card{padding:5px 8px!important;gap:8px!important;font-size:13px}
+  .card .ic{width:18px!important;height:18px!important}
+  .card .wv{min-width:46px!important;font-size:12px!important}
+  .card .vl{font-size:11.5px!important}
+  .cards{gap:6px!important}
+  .plc{padding:9px!important} .tbl{padding:5px 8px!important}
+  .tbl b{font-size:12.5px!important}
+  @media (max-width:760px){ .topo{grid-template-columns:1fr!important} }
+  /* Menú «Herramientas» */
+  .menu{position:relative}
+  .menu summary{list-style:none;cursor:pointer;font:600 12.5px var(--sans);color:#fff;border:1px solid rgba(255,255,255,.45);padding:5px 12px;user-select:none}
+  .menu summary::-webkit-details-marker{display:none}
+  .menu summary::after{content:" ▾";opacity:.8}
+  .menu[open] summary{background:rgba(255,255,255,.12)}
+  .menu .pop{position:absolute;right:0;top:calc(100% + 6px);width:290px;background:var(--card);color:var(--body);border:1px solid var(--line-strong);
+    border-top:2px solid var(--signal);padding:12px;display:flex;flex-direction:column;gap:7px;z-index:10}
+  .menu .pop button{width:100%;text-align:left;color:var(--ink);border-color:var(--line-strong);background-color:transparent}
+  .menu .pop a{text-decoration:none}
+  .menu .mlbl{font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--signal);margin-top:4px}
+  .menu .minfo{font-size:11.5px;color:var(--gris);word-break:break-all}
+  .menu .mrow{display:flex;gap:6px}
+  .menu .mrow input{flex:1;min-width:0;color:var(--body);border-color:var(--line-strong);background:#fff}
+  .menu .mrow button{width:auto;white-space:nowrap}
+
+  /* Secciones plegables: clic en el título */
+  section > h2{cursor:pointer;user-select:none}
+  section > h2::before{content:"▾";font:14px/1 var(--sans);width:12px;display:inline-block;transition:transform .2s var(--ease)}
+  .warnbar{margin:10px 0 0;padding:8px 10px;border-left:3px solid var(--bad);background:color-mix(in srgb,var(--bad) 7%,transparent);font-size:12.5px;color:var(--body)}
+  .warnbar button{font-size:12px;padding:2px 8px;margin-left:6px}
+  section.collapsed > h2::before{transform:rotate(-90deg)}
+  section.collapsed{padding-top:12px;padding-bottom:12px}
+  section.collapsed > h2{margin:0}
+  section.collapsed > :not(h2){display:none!important}
+  details.fold{margin-top:10px;border-top:1px solid var(--line)}
+  details.fold > summary{cursor:pointer;list-style:none;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--signal);padding:8px 0 2px}
+  details.fold > summary::-webkit-details-marker{display:none}
+  details.fold > summary::before{content:"▸ "} details.fold[open] > summary::before{content:"▾ "}
+  details.fold > summary small{font-family:var(--sans);letter-spacing:0;text-transform:none;color:var(--gris);font-weight:400;margin-left:6px}
+
+  /* Pie institucional */
+  footer{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:18px 24px 26px;border-top:1px solid var(--line);color:var(--gris);font-size:12.5px;background:var(--card)}
+  footer img{height:46px}
+  footer .grow{flex:1}
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<header>
+  <img class="logo" src="/marca/ucuenca-deet-blanco.svg" alt="Universidad de Cuenca · DEET">
+  <span class="sep"></span>
+  <span class="ttl"><span class="lbl">Sala de control · Laboratorio OT</span><h1>Modbus TCP · Práctica 1</h1></span>
+  <span class="chip down" id="conn">● esclavo ?</span>
+  <span class="grow"></span>
+  <span class="chip rec" id="wsSt" hidden>● Wireshark</span>
+  <span class="chip rec" id="pcapSt" hidden></span>
+  <details class="menu" id="menu">
+    <summary>Herramientas</summary>
+    <div class="pop">
+      <div class="mlbl">Conexión</div>
+      <div class="mono minfo" id="target"></div>
+      <div class="mlbl">Captura de red</div>
+      <button id="wsBtn" title="tcpdump en el puente de ot-lab | Wireshark -k -i - (lámina 25). Sobrevive a «Cargar tablero».">Abrir Wireshark en vivo</button>
+      <div class="mrow"><input id="pcapName" placeholder="nombre.pcapng" title="Archivo en ot-lab/captures">
+        <button id="pcapBtn" title="tcpdump en el puente de ot-lab · lámina 25">● Grabar pcap</button></div>
+      <div class="mlbl">Evidencia</div>
+      <a href="/api/export.md"><button>Exportar evidencia .md</button></a>
+      <button id="copyMd">Copiar Markdown</button>
+    </div>
+  </details>
+</header>
+
+<nav id="tabs"></nav>
+
+<main>
+  <div>
+    <section class="scn" id="scn"></section>
+    <div id="plcLeft" hidden></div>
+    <section id="stepsSec">
+      <h2>Pasos del reto <span class="r"><button id="runAll" class="primary">▶ Ejecutar todos</button></span></h2>
+      <div id="steps"></div>
+    </section>
+  </div>
+
+  <div>
+    <div class="toprow">
+    <section class="vitrina" id="topoSec">
+      <h2>Topología · estado leído del esclavo <span class="r"><button id="refresh">↻ Leer estado</button></span></h2>
+      <div class="topo" id="topo"></div>
+      <div class="legend">
+        <span class="t-co">Coil · bit lectura/escritura (FC 01·05·15)</span>
+        <span class="t-di ro">Discrete input · bit solo lectura (FC 02)</span>
+        <span class="t-hr">Holding register · palabra L/E (FC 03·06·16)</span>
+        <span class="t-ir ro">Input register · palabra solo lectura (FC 04)</span>
+      </div>
+    </section>
+    <section class="gen" id="genSec">
+      <h2>Generador de tramas · bits y bytes</h2>
+      <div class="gbody">
+        <div>
+          <div class="g">
+            <label>Función</label><select id="gFc"></select>
+            <label>Dirección</label><input id="gAddr" type="number" min="0" max="65535" value="0">
+            <label id="gCntL">Cantidad</label><input id="gCnt" type="number" min="1" max="16" value="5">
+          </div>
+          <div id="gEd"></div>
+        </div>
+        <div>
+          <div class="out" id="gOut"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button id="gSend" class="primary">▶ Enviar al docker</button>
+            <input id="free" placeholder="o escriba una sentencia: c.read_coils(0, count=8, device_id=1).bits" style="flex:1;min-width:200px;font-family:var(--mono);font-size:12px">
+            <button id="freeSend">▶</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    </div>
+    <section id="plcLive" hidden></section>
+    <section id="plcMon" hidden></section>
+    <section id="capSec">
+      <h2>Captura · lo que salió del docker <span class="r" id="histN"></span></h2>
+      <div id="cap"><div class="empty">Ejecute un paso: aquí aparecen la consola del cliente, las tramas TX/RX, la tabla de la lámina 32 y el log de modbus-sim.</div></div>
+      <div class="sub">Historial (todo entra en la evidencia exportada)</div>
+      <div class="hist" id="hist"></div>
+    </section>
+  </div>
+</main>
+<footer>
+  <img src="/marca/grupo-electronica-control.svg" alt="Grupo de investigación Electrónica y Control">
+  <span>Departamento de Eléctrica, Electrónica y Telecomunicaciones · Universidad de Cuenca<br>Taller 2 · Prácticas guiadas OT-Lab · Modbus TCP, pymodbus y OpenPLC en Docker</span>
+  <span class="grow"></span><span class="mono">ot-client → modbus-sim 172.28.0.30:5020 · openplc 172.28.0.10</span>
+</footer>
+<div class="busy" id="busy">⏳ ejecutando en docker…</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const TBL = {
+  di:{name:"Discrete inputs", meta:"1x · FC 02 · lectura", ro:true, bit:true},
+  co:{name:"Coils",           meta:"0x · FC 01 · 05 · 15", ro:false, bit:true},
+  ir:{name:"Input registers", meta:"3x · FC 04 · lectura", ro:true, bit:false},
+  hr:{name:"Holding registers",meta:"4x · FC 03 · 06 · 16", ro:false, bit:false},
+};
+const FC_TBL = {1:"co",5:"co",15:"co",2:"di",3:"hr",6:"hr",16:"hr",4:"ir"};
+let cfg, scn, state = null, prev = null, history = [], sel = -1, stepRes = {};
+
+async function api(path, body){
+  const r = await fetch(path, body === undefined ? {} : {method:"POST", body:JSON.stringify(body)});
+  return r.json();
+}
+async function busy(fn){
+  document.querySelectorAll("button").forEach(b => b.disabled = true);
+  $("#busy").style.display = "block";
+  try { return await fn(); }
+  finally { document.querySelectorAll("button").forEach(b => b.disabled = false); $("#busy").style.display = "none"; }
+}
+
+/* --------------------------------------------- plegado de secciones */
+// Por defecto plegadas: lo no esencial. El estado elegido por el usuario se recuerda.
+const FOLD_DEFAULT = {plcField: 1, plcTests: 1, plcMon: 1};
+function applyFolds(){
+  document.querySelectorAll("section[id]").forEach(sec => {
+    let v = null;
+    try{ v = localStorage.getItem("otlab.fold." + sec.id); }catch{}
+    sec.classList.toggle("collapsed", v === null ? !!FOLD_DEFAULT[sec.id] : v === "1");
+  });
+}
+document.addEventListener("click", e => {
+  const menu = $("#menu");
+  if (menu?.open && !menu.contains(e.target)) menu.open = false;
+  const h = e.target.closest("section[id] > h2");
+  if (!h || e.target.closest("button, input, select, a")) return;
+  const sec = h.parentElement, c = !sec.classList.contains("collapsed");
+  sec.classList.toggle("collapsed", c);
+  try{ localStorage.setItem("otlab.fold." + sec.id, c ? "1" : "0"); }catch{}
+  if (sec.id === "topoSec" && !c) requestAnimationFrame(drawLinks);
+});
+
+/* ---------------------------------------------------------- escenarios */
+function renderTabs(){
+  $("#tabs").innerHTML = cfg.scenarios.map(s =>
+    `<button data-id="${s.id}" class="${s.id===scn.id?"sel":""}">${cfg.active===s.id?'<span class="dotact" title="tablero cargado"></span>':""}${esc(s.title)} <small>lám. ${s.slides}</small></button>`).join("");
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => selectScn(b.dataset.id));
+}
+function selectScn(id){
+  scn = cfg.scenarios.find(s => s.id === id);
+  try{ localStorage.setItem("otlab.scn", id); }catch{}
+  const isPlc = scn.kind === "openplc";
+  $("#stepsSec").hidden = isPlc;
+  ["#plcLeft","#plcLive","#plcMon"].forEach(s => $(s).hidden = !isPlc);
+  renderTabs(); renderScn(); renderSteps(); renderTopo();
+  isPlc ? plcEnter() : plcLeave();
+  applyFolds();
+}
+
+/* --------------------------------------------------------------- OpenPLC */
+let plcTimer = null, plcBusy = false, plcTick = 0, plcSt = null, plcLiveOn = false;
+const FCN = {1:"Read Coils",2:"Read Discrete Inputs",3:"Read Holding Registers",4:"Read Input Registers",
+             5:"Write Single Coil",6:"Write Single Register",15:"Write Multiple Coils",16:"Write Multiple Registers"};
+function plcLeave(){ clearInterval(plcTimer); plcTimer = null; }
+async function plcEnter(){
+  renderPlcLeft(); renderPlcLive(null); renderPlcMon(null); applyFolds();
+  plcLeave(); plcTimer = setInterval(plcPoll, 1000);
+  await plcStatus(); plcPoll();
+}
+async function plcStatus(){
+  const r = await api("/api/plc/status");
+  if (!r.ok){ $("#plcSt").innerHTML = `<span class="err">${esc(r.error)}</span>`; return; }
+  plcSt = r; plcLiveOn = r.live;
+  const run = r.status.status === "Running";
+  $("#plcSt").innerHTML = `<span class="pill ${run?"run":"stop"}">${esc(r.status.status)}</span>
+    programa <b>${esc(r.status.program||"—")}</b> <span class="mono" style="color:var(--gris)">${esc(r.status.file)}</span>`;
+  $("#plcDev").innerHTML = r.devices.length ? `<table class="pdu"><tr><th>Slave Device</th><th>ID</th><th>IP:puerto</th><th>DI</th><th>Coils</th><th>IR</th><th>HR R</th><th>HR W</th></tr>${
+    r.devices.map(d => `<tr><td>${esc(d.dev_name)}</td><td>${d.slave_id}</td><td>${d.ip_address}:${d.ip_port}</td><td>${d.di_start}/${d.di_size}</td><td>${d.coil_start}/${d.coil_size}</td><td>${d.ir_start}/${d.ir_size}</td><td>${d.hr_read_start}/${d.hr_read_size}</td><td>${d.hr_write_start}/${d.hr_write_size}</td></tr>`).join("")}</table>`
+    : `<div class="empty">sin Slave Devices: OpenPLC no sondea a nadie</div>`;
+  $("#plcRun").textContent = run ? "■ Stop PLC" : "▶ Start PLC";
+  syncLiveBtn(); genOut();
+}
+function renderPlcLeft(){
+  $("#plcLeft").innerHTML = `
+  <section id="plcRuntime">
+    <h2>OpenPLC · runtime <span class="r"><a href="http://localhost:8080" target="_blank"><button>panel :8080 ↗</button></a></span></h2>
+    <div id="plcSt" class="ctl">…</div>
+    <div class="ctl">
+      <button id="plcCfg" class="primary">⚙ Configurar OpenPLC</button>
+      <button id="plcRun">Start PLC</button>
+    </div>
+    <div id="plcLog"></div>
+    <details class="fold"><summary>Slave Device <small>qué hace «Configurar»</small></summary>
+      <div style="font-size:12.5px;color:var(--gris);margin:6px 0 8px">Sube y compila <b>tableros.st</b>, deja un único Slave Device hacia modbus-sim
+        (ID 1 · 172.28.0.30:5020 · DI 0/4 · Coils 0/5 · IR 0/4 · HR read 0/5 · HR write 5/3) y hace Start PLC — los pasos de la lámina 34.</div>
+      <div id="plcDev" class="wrap"></div>
+    </details>
+  </section>
+  <section id="plcLogic">
+    <h2>Lógica del PLC · tableros.st (en vivo)</h2>
+    <div id="plcRules"></div>
+  </section>
+  <section id="plcOp">
+    <h2>Operador · HMI escribe consignas (FC 06 desde ot-client)</h2>
+    <div class="ctl"><span class="lab">Consigna T (HR 0)</span><input id="opT" type="number" step="0.5" value="26"> °C
+      <button data-op="0" data-scale="10" data-src="opT">Enviar</button></div>
+    <div class="ctl"><span class="lab">Umbral CO₂ (HR 2)</span><input id="opC" type="number" step="50" value="800"> ppm
+      <button data-op="2" data-scale="1" data-src="opC">Enviar</button></div>
+    <div class="ctl"><button data-quick="220">Consigna 22,0 °C → alarma</button><button data-quick="260">Consigna 26,0 °C → normal</button></div>
+  </section>
+  <section id="plcField">
+    <h2>Campo simulado · sensores y pulsadores (server.json + restart)</h2>
+    <div class="ctl"><span class="lab">Temperatura (IR 0)</span><input id="fT" type="number" step="0.5" value="23.5"> °C
+      <button data-field="0" data-scale="10" data-src="fT">Aplicar</button></div>
+    <div class="ctl"><span class="lab">CO₂ (IR 2)</span><input id="fC" type="number" step="50" value="612"> ppm
+      <button data-field="2" data-scale="1" data-src="fC">Aplicar</button></div>
+    <div class="ctl" id="plcDi"></div>
+    <div class="note" style="font-size:12px;color:var(--gris)">IR y DI no se pueden escribir por Modbus (solo lectura): se cambian en server.json y se reinicia modbus-sim,
+      conservando consignas. OpenPLC pierde la conexión y abre otra: obsérvelo en «Conexiones TCP».</div>
+  </section>
+  <section id="plcTests">
+    <h2>Pruebas de la lámina 36</h2>
+    <div class="ctl"><button id="plcOut">⏸ Detener modbus-sim 5 s</button>
+      <span style="font-size:12.5px;color:var(--gris)">¿Qué hace OpenPLC si el simulador no responde? ¿Y cuando vuelve?</span></div>
+  </section>`;
+  $("#plcCfg").onclick = () => busy(async () => {
+    $("#busy").textContent = "⏳ configurando OpenPLC (compilar tarda ~30-60 s)…";
+    const r = await api("/api/plc/configure", {});
+    $("#busy").textContent = "⏳ ejecutando en docker…";
+    $("#plcLog").innerHTML = `<div class="plclog">${(r.log||[]).map(l => `<div>${esc(l)}</div>`).join("")}${r.ok?"":`<div class="err">${esc(r.error)}</div>`}</div>`;
+    await plcStatus();
+  });
+  $("#plcRun").onclick = () => busy(async () => {
+    const run = plcSt?.status.status === "Running";
+    const r = await api(run ? "/api/plc/stop" : "/api/plc/start", {});
+    r.ok ? await plcStatus() : showErr(r.error);
+  });
+  document.querySelectorAll("#plcLeft [data-op]").forEach(b => b.onclick = () =>
+    opWrite(+b.dataset.op, Math.round(+$("#"+b.dataset.src).value * +b.dataset.scale)));
+  document.querySelectorAll("#plcLeft [data-quick]").forEach(b => b.onclick = () => opWrite(0, +b.dataset.quick));
+  document.querySelectorAll("#plcLeft [data-field]").forEach(b => b.onclick = () =>
+    fieldWrite({ir: {[b.dataset.field]: Math.round(+$("#"+b.dataset.src).value * +b.dataset.scale)}}));
+  $("#plcOut").onclick = async () => {
+    const r = await api("/api/plc/outage", {seconds: 5});
+    r.ok ? ($("#plcOut").textContent = "⏸ modbus-sim detenido… (vuelve en 5 s)") : showErr(r.error);
+    setTimeout(() => $("#plcOut").textContent = "⏸ Detener modbus-sim 5 s", 9000);
+  };
+  renderPlcDynamic();
+}
+function opWrite(addr, v){
+  return busy(async () => {
+    const r = await api("/api/run", {stmts:[`c.write_register(${addr}, ${v}, device_id=1)`], label:`Operador · HR ${addr} = ${v}`});
+    r.ok ? addEntries(r.entries) : showErr(r.error);
+  });
+}
+function fieldWrite(body){
+  return busy(async () => {
+    $("#busy").textContent = "⏳ cambiando el campo (server.json + restart modbus-sim)…";
+    const r = await api("/api/plc/field", body);
+    $("#busy").textContent = "⏳ ejecutando en docker…";
+    r.ok ? addEntries([r.entry]) : showErr(r.error);
+  });
+}
+function renderPlcDynamic(){
+  if (!$("#plcRules")) return;
+  const co = state?.co || [], di = state?.di || [];
+  $("#plcRules").innerHTML = (scn.logic||[]).map(l =>
+    `<div class="rule ${co[l.out[1]]===1?"on":""}"><span class="ic"></span><span>${esc(l.text)}</span></div>`).join("");
+  const names = ["Marcha","Paro","Emergencia","Puerta abierta"];
+  $("#plcDi").innerHTML = `<span class="lab">Pulsadores (DI)</span>` + names.map((n,i) =>
+    `<span class="tog ${di[i]===1?"on":""}" data-di="${i}">${n} · DI ${i} = ${di[i] ?? "?"}</span>`).join("");
+  document.querySelectorAll("#plcDi [data-di]").forEach(t => t.onclick = () =>
+    fieldWrite({di: {[t.dataset.di]: !(di[+t.dataset.di] === 1)}}));
+}
+function syncLiveBtn(){
+  const b = $("#liveBtn"); if (!b) return;
+  b.textContent = plcLiveOn ? "■ Detener y guardar pcap" : "● Capturar en vivo";
+  b.className = plcLiveOn ? "" : "primary";
+}
+function renderPlcLive(a){
+  if (!$("#liveTbl")){
+    $("#plcLive").innerHTML = `<h2>Tabla lámina 36 · sondeo de OpenPLC en vivo
+      <span class="r"><input id="liveName" value="openplc" title="captures/<nombre>.pcapng" style="width:100px">
+      <select id="liveWin"><option value="3">3 s</option><option value="5" selected>5 s</option><option value="10">10 s</option></select>
+      <button id="liveBtn" class="primary">● Capturar en vivo</button></span></h2>
+      <div id="liveStats"></div><div class="wrap" id="liveTbl"></div>
+      <details class="fold"><summary>Detalle <small>orden del ciclo, conexiones TCP, huecos, cambios de valor y un ciclo completo</small></summary><div id="liveMore"></div></details>`;
+    $("#liveBtn").onclick = () => busy(async () => {
+      if (plcLiveOn){
+        const r = await api("/api/plc/live/stop", {name: $("#liveName").value, window: +$("#liveWin").value});
+        plcLiveOn = false; syncLiveBtn();
+        if (!r.ok) return showErr(r.error);
+        addEntries([r.entry]);
+        $("#liveStats").insertAdjacentHTML("afterbegin", `<div class="checks ok">✓ guardado ${esc(r.saved)} (${r.bytes} bytes) · entra en la evidencia exportada</div>`);
+      } else {
+        $("#busy").textContent = "⏳ arrancando tcpdump (filtro host 172.28.0.10 and tcp port 5020)…";
+        const r = await api("/api/plc/live/start", {});
+        $("#busy").textContent = "⏳ ejecutando en docker…";
+        if (!r.ok) return showErr(r.error);
+        plcLiveOn = true; syncLiveBtn();
+      }
+    });
+    syncLiveBtn();
+  }
+  if (!a){ $("#liveTbl").innerHTML = `<div class="empty">Pulse «Capturar en vivo»: tcpdump escucha el puente de ot-lab (solo 172.28.0.10 ↔ :5020) y la tabla se llena sola cada segundo.</div>`; return; }
+  const st = (k, v, cls="") => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  $("#liveStats").innerHTML = `<div class="stats">
+    ${st("Query por ciclo", a.per_cycle)}
+    ${st("Periodo de ciclo", a.cycle_ms != null ? a.cycle_ms + " ms" : "—")}
+    ${st("Conexiones TCP", a.n_conns, a.n_conns > 1 ? "bad" : "ok")}
+    ${st("Transaction ID", (a.tid_now ?? "—") + (a.tid_seq ? " · +1" : " · salto"), a.tid_seq ? "ok" : "bad")}
+  </div>`;
+  const extra = `<div class="stats">
+    ${st("Capturando", a.elapsed + " s")}
+    ${st("Orden", a.same_order ? "siempre igual" : "varía", a.same_order ? "ok" : "bad")}
+    ${st("Sin Response", a.lost, a.lost ? "bad" : "ok")}
+    ${st("Última Query hace", a.silent_s != null ? a.silent_s + " s" : "—", a.silent_s > 1 ? "bad" : "")}
+  </div>`;
+  $("#liveTbl").innerHTML = a.rows.length ? `<table class="pdu"><tr><th>Tabla en OpenPLC</th><th>FC</th><th>Veces / s</th><th>Periodo</th><th>Datos en</th><th>PDU Query → Response</th><th>Valor</th></tr>${
+    a.rows.map(r => `<tr><td>${esc(r.table)}</td><td>${fcBadge(r.fc)}</td><td>${r.per_s}</td><td>${r.period_ms ?? "—"} ms</td><td>${r.where}</td>
+      <td>${esc(r.q)}<br>→ ${esc(r.r) || '<span class="err">sin respuesta</span>'}</td><td>${esc(r.value)}</td></tr>`).join("")}</table>`
+    : `<div class="empty">sin tramas de OpenPLC en los últimos ${a.window} s (¿PLC detenido o sin Slave Device?)</div>`;
+  $("#liveMore").innerHTML = extra +
+    `<div class="sub">Orden de un ciclo</div><div class="mono" style="font-size:12.5px">${a.order.map(fc => `${fcBadge(fc)} ${FCN[fc]||""}`).join(" → ") || "—"}</div>` +
+    `<div class="sub">Conexiones TCP de OpenPLC (puerto cliente · TID)</div>${a.conns.map(c =>
+      `<div class="chg">:${c.cport} desde t=${c.since} s · TID ${c.tid_first} → ${c.tid_last} · ${c.n} Query</div>`).join("") || '<div class="empty">—</div>'}` +
+    `<div class="sub">Huecos en el sondeo (&gt; 1 s sin Query)</div>${a.gaps.map(g =>
+      `<div class="chg err">t=${g.t} s · ${g.s} s sin tráfico de OpenPLC</div>`).join("") || '<div class="empty">ninguno</div>'}` +
+    `<div class="sub">Cambios de valor en la red (primera trama con el valor nuevo)</div>${a.changes.slice().reverse().map(c =>
+      `<div class="chg">t=${c.t} s ${fcBadge(c.fc)} ${esc(c.from)} → <b>${esc(c.to)}</b></div>`).join("") || '<div class="empty">sin cambios todavía</div>'}${
+      a.counters.length ? `<div class="chg" style="color:var(--gris)">${a.counters.map(fc => fcBadge(fc)).join(" ")} cambia en cada ciclo (contador de ciclos del PLC en HR 7): no se lista</div>` : ""}` +
+    `<div class="sub">Un ciclo completo · Query y Response</div>${a.cycle.map(f =>
+      `<div class="fr"><span class="d">${f.dir === "Q" ? "Q" : "R"}</span>${paint(f.hex)}</div>`).join("") || '<div class="empty">—</div>'}`;
+}
+function renderPlcMon(vars){
+  $("#plcMon").innerHTML = `<h2>Monitoring de OpenPLC · variables del programa</h2>` + (vars && vars.length
+    ? `<div class="wrap"><table class="pdu"><tr><th>Variable</th><th>Tipo</th><th>Dirección</th><th>Valor</th></tr>${
+        vars.map(v => `<tr><td>${esc(v.name)}</td><td>${v.type}</td><td>${v.loc}</td><td><b>${esc(v.value)}</b></td></tr>`).join("")}</table></div>`
+    : `<div class="empty">${vars ? "sin variables (¿programa sin AT %…?)" : "cargando…"}</div>`);
+}
+async function plcPoll(){
+  if (plcBusy || scn.kind !== "openplc") return;
+  plcBusy = true; plcTick++;
+  try{
+    const s = await api("/api/state");
+    if (s.ok){ prev = state; state = s.state; setConn(true); renderTopo(); renderPlcDynamic(); } else setConn(false);
+    if (plcLiveOn){
+      const l = await api("/api/plc/live?w=" + ($("#liveWin")?.value || 5));
+      if (l.ok) renderPlcLive(l.a);
+    }
+    if (plcTick % 3 === 1){
+      const m = await api("/api/plc/monitor");
+      renderPlcMon(m.ok ? m.vars : []);
+    }
+    if (plcTick % 10 === 1) await plcStatus();
+  } finally { plcBusy = false; }
+}
+function renderScn(){
+  const loaded = cfg.active === scn.id;
+  $("#scn").innerHTML = `<h2>Escenario · láminas ${scn.slides}</h2>
+    <h3>${esc(scn.title)}</h3><p>${esc(scn.intro)}</p>
+    <div class="row">
+      <button id="loadB" class="${loaded?"":"primary"}">Paso 1 · Cargar tablero en server.json</button>
+      <span class="badge ${loaded?"on":"off"}">${loaded?"✓ tablero cargado en modbus-sim":"otro tablero cargado"}</span>
+    </div>
+    <details><summary>«registers» que se escribe (clave = dirección + 1)</summary><pre class="json">${esc(JSON.stringify(scn.board,null,1))}</pre></details>
+    ${scn.kind !== "openplc" && plcWrites() ? `<div class="warnbar">⚠ OpenPLC está en <b>Running</b> y escribe coils y holding registers cada ~100 ms:
+      pisará lo que envíe desde Python.<button id="plcStopHere">■ Stop PLC</button></div>` : ""}`;
+  $("#plcStopHere")?.addEventListener("click", () => busy(async () => {
+    const r = await api("/api/plc/stop", {});
+    if (!r.ok) return showErr(r.error);
+    plcSt.status = r.status; renderScn(); genOut();
+  }));
+  $("#loadB").onclick = () => busy(async () => {
+    const r = await api("/api/board", {scenario: scn.id});
+    if (!r.ok) return showErr(r.error);
+    cfg.active = r.active; prev = null; state = r.state; stepRes = {};
+    if (r.entry) addEntries([r.entry]);
+    renderTabs(); renderScn(); renderSteps(); renderTopo(); setConn(true); refreshPcap();
+  });
+}
+function renderSteps(){
+  $("#steps").innerHTML = scn.steps.map((st, i) => {
+    const res = stepRes[scn.id+":"+i];
+    const cls = res ? (res.every(c => c.ok) ? "done" : "fail") : "";
+    const preds = (st.checks||[]).filter(c => c.pdu).map(c => `predicción ${c.dir==="TX"?"Query":"Response"}: ${c.pdu}`);
+    return `<div class="step ${cls}"><div class="hd"><b>${esc(st.label)}</b>
+      <span class="st">${res ? res.filter(c=>c.ok).length+"/"+res.length+" ✓" : ""}</span>
+      <button class="play" data-i="${i}">▶</button></div>
+      <code>${st.stmts.map(s => ">>> "+esc(s)).join("\n")}</code>
+      ${st.note?`<div class="note">${esc(st.note)}</div>`:""}
+      ${preds.length?`<div class="pred">${preds.map(esc).join("<br>")}</div>`:""}</div>`;
+  }).join("");
+  document.querySelectorAll("#steps .play").forEach(b => b.onclick = () => runSteps(+b.dataset.i));
+}
+async function runSteps(i){
+  await busy(async () => {
+    const r = await api("/api/step", {scenario: scn.id, step: i, steps: i === "all" ? "all" : undefined});
+    if (!r.ok) return showErr(r.error);
+    const idx = i === "all" ? scn.steps.map((_, k) => k) : [i];
+    r.entries.forEach((e, k) => stepRes[scn.id+":"+idx[k]] = e.checks);
+    addEntries(r.entries); renderSteps();
+  });
+}
+
+/* ------------------------------------------------------------ topología */
+function labelsOf(t){ return (scn.labels||{})[t] || {}; }
+function fmtWord(v, lb){
+  if (v == null) return "—";
+  const s = lb.scale ? (v/lb.scale).toLocaleString("es",{minimumFractionDigits:1}) : v;
+  return `${s}${lb.unit?" "+lb.unit:""}`;
+}
+function cardHtml(t, addr, lb){
+  const T = TBL[t], v = state?.[t]?.[addr], pv = prev?.[t]?.[addr];
+  const changed = prev && pv !== undefined && pv !== v;
+  const tag = {di:"DI",co:"coil",ir:"IR",hr:"HR"}[t];
+  if (T.bit){
+    const on = v === 1;
+    const icol = lb.color ? `style="--i:${lb.color}"` : "";
+    return `<div class="card t-${t} ${T.ro?"ro":""} ${on?"on":""}" id="c-${t}-${addr}" ${icol}>
+      <span class="ic"></span><span><div class="nm">${esc(lb.label)}</div><div class="ad">${tag} ${addr}</div></span>
+      <span class="vl">${changed?`<span>${pv} → </span>`:""}<span class="chg">${v ?? "—"}</span><br>${on?(t==="di"?"activo":"encendido"):(v===0?(t==="di"?"reposo":"apagado"):"")}</span></div>`;
+  }
+  return `<div class="card t-${t} ${T.ro?"ro":""}" id="c-${t}-${addr}">
+    <span class="wv">${v ?? "—"}</span><span><div class="nm">${esc(lb.label)}</div><div class="ad">${tag} ${addr}</div></span>
+    <span class="vl">${changed?`<span>${pv} → </span><span class="chg">${v}</span><br>`:""}${esc(fmtWord(v, lb))}</span></div>`;
+}
+function renderTopo(){
+  const col = ts => ts.flatMap(t => Object.entries(labelsOf(t)).map(([a, lb]) => cardHtml(t, +a, lb))).join("");
+  const used = t => Object.keys(labelsOf(t)).length > 0;
+  $("#topo").innerHTML = `<svg id="links"></svg>
+    <div><div class="colh">Campo · entradas</div><div class="cards">${col(["di","ir"]) || '<div class="empty">sin entradas en este tablero</div>'}</div></div>
+    <div class="plc"><div class="tt">PLC · modbus-sim</div><div class="ts">172.28.0.30:5020 · unit 1</div>
+      ${["di","co","ir","hr"].map(t => `<div class="tbl t-${t} ${used(t)?"":"dim"}" id="p-${t}"><b>${TBL[t].name}</b><div>${TBL[t].meta}</div></div>`).join("")}</div>
+    <div><div class="colh">Salidas y parámetros</div><div class="cards">${col(["co","hr"]) || '<div class="empty">sin salidas en este tablero</div>'}</div></div>`;
+  requestAnimationFrame(drawLinks);
+}
+function drawLinks(){
+  const svg = $("#links"); if (!svg) return;
+  const box = $("#topo").getBoundingClientRect();
+  let html = "";
+  ["di","ir","co","hr"].forEach(t => {
+    const p = document.getElementById("p-"+t); if (!p) return;
+    const pr = p.getBoundingClientRect();
+    Object.keys(labelsOf(t)).forEach(a => {
+      const c = document.getElementById(`c-${t}-${a}`); if (!c) return;
+      const cr = c.getBoundingClientRect();
+      const left = t === "di" || t === "ir";
+      const x1 = (left ? cr.right : cr.left) - box.left, y1 = cr.top + cr.height/2 - box.top;
+      const x2 = (left ? pr.left : pr.right) - box.left, y2 = pr.top + pr.height/2 - box.top;
+      const mx = (x1 + x2) / 2;
+      html += `<path class="link" id="l-${t}-${a}" stroke="var(--${t})" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}"/>`;
+    });
+  });
+  svg.innerHTML = html;
+}
+window.addEventListener("resize", () => drawLinks());
+
+function touched(entry){
+  const out = [];
+  entry.steps.forEach(st => st.frames.filter(f => f.dir === "TX").forEach(f => {
+    const b = f.hex.split(" ").map(h => parseInt(h, 16));
+    const fc = b[7], t = FC_TBL[fc]; if (!t) return;
+    const addr = (b[8] << 8) | b[9], n = (fc === 5 || fc === 6) ? 1 : ((b[10] << 8) | b[11]);
+    out.push({t, addr, n});
+  }));
+  return out;
+}
+function flash(entry){
+  touched(entry).forEach(({t, addr, n}) => {
+    const els = [document.getElementById("p-"+t)];
+    for (let a = addr; a < addr + n; a++) els.push(document.getElementById(`c-${t}-${a}`), document.getElementById(`l-${t}-${a}`));
+    els.filter(Boolean).forEach(e => { e.classList.add("hot"); setTimeout(() => e.classList.remove("hot"), 2600); });
+  });
+}
+
+/* -------------------------------------------------------------- captura */
+function fcBadge(fc){ return fc == null ? "—" : `<span class="fcb t-${FC_TBL[fc]||"co"}">${String(fc).padStart(2,"0")}</span>`; }
+function paint(hex){
+  const b = hex.split(" "), fc = parseInt(b[7], 16), t = FC_TBL[fc & 0x7f] || "co";
+  const seg = (f, to, c) => b.slice(f, to).length ? `<i class="${c}">${b.slice(f, to).join(" ")}</i>` : "";
+  return `<span class="t-${t}">${seg(0,2,"m-tid")}${seg(2,4,"m-pid")}${seg(4,6,"m-len")}${seg(6,7,"m-uid")}${seg(7,8,"m-fc")}${seg(8,b.length,"m-dat")}</span>`;
+}
+function renderCap(){
+  const e = history[sel];
+  $("#histN").textContent = history.length ? `${history.length} ejecuciones` : "";
+  $("#hist").innerHTML = history.map((h, i) =>
+    `<button data-i="${i}" class="${i===sel?"sel":""} ${h.checks.some(c=>!c.ok)?"bad":""}">${h.n}. ${esc(h.label.slice(0,34))}</button>`).join("");
+  document.querySelectorAll("#hist button").forEach(b => b.onclick = () => { sel = +b.dataset.i; renderCap(); });
+  if (!e) return;
+  let h = `<div class="cap-h"><b>${esc(e.label)}</b><span class="mono">${e.ts} · ${e.ms} ms · docker exec ot-client</span></div>`;
+  if (e.checks.length) h += `<ul class="checks">${e.checks.map(c => {
+      const exp = [c.out, c.pdu && (c.dir==="TX"?"Query ":"Response ")+c.pdu].filter(Boolean).join(" · ");
+      return `<li class="${c.ok?"ok":"bad"}">${c.ok?"✅":"❌"} sentencia ${c.i+1} · esperado ${esc(exp)}${c.ok?"":" · obtenido "+esc(c.got)}</li>`;}).join("")}</ul>`;
+  if (e.board) h += `<details class="fold"><summary>server.json · registers</summary><pre class="json">${esc(JSON.stringify(e.board,null,1))}</pre></details>`;
+  if (e.steps.length){
+    h += `<div class="sub">Consola · python en el contenedor ot-client</div><pre class="con">${e.steps.map(st =>
+      `<span class="p">&gt;&gt;&gt; ${esc(st.stmt)}</span>\n` + st.out.map(l => /Error|Traceback|File "/.test(l) ? `<span class="e">${esc(l)}</span>` : esc(l)).join("\n")).join("\n")}</pre>`;
+    h += `<div class="sub">Tabla lámina 32 · FC · dónde van los datos · PDU</div><div class="wrap"><table class="pdu"><tr><th>Petición</th><th>FC</th><th>Datos en</th><th>PDU Query</th><th>PDU Response</th><th>Valor</th></tr>${
+      e.steps.map(st => { const r = st.row; return `<tr><td>${esc(st.stmt.replace(", device_id=1",""))}</td><td>${fcBadge(r.fc)}</td><td>${r.where}</td><td>${esc(r.pdu_tx)}</td><td>${esc(r.pdu_rx)}</td><td>${esc(r.value)}${r.note?`<br><span class="err">${esc(r.note)}</span>`:""}</td></tr>`;}).join("")}</table></div>`;
+    h += `<details class="fold"><summary>Tramas completas <small>MBAP (tid · proto · len · unit) + PDU (FC · datos)</small></summary>${
+      e.steps.flatMap(st => st.frames).map(f => `<div class="fr"><span class="d">${f.dir}</span>${paint(f.hex)}</div>`).join("") || '<div class="empty">sin tramas: el cliente no envió nada</div>'}</details>`;
+  }
+  if (e.logs.length) h += `<details class="fold"><summary>docker logs modbus-sim <small>lo que vio el esclavo · ${e.logs.length} líneas</small></summary><pre class="log">${e.logs.map(l =>
+      / (recv|send): /.test(l) ? `<span class="rs">${esc(l)}</span>` : /decoded|Values/.test(l) ? `<span class="dc">${esc(l)}</span>` : esc(l)).join("\n")}</pre></details>`;
+  $("#cap").innerHTML = h;
+}
+function addEntries(entries){
+  entries.forEach(e => history.push(e));
+  sel = history.length - 1;
+  const last = entries[entries.length - 1];
+  if (last.state){ prev = state; state = last.state; }
+  setConn(true); renderTopo(); renderCap();
+  requestAnimationFrame(() => entries.forEach(flash));
+}
+function showErr(msg){
+  $("#cap").innerHTML = `<div class="err">ERROR: ${esc(msg)}</div>`;
+}
+function setConn(up){ const c = $("#conn"); c.className = "chip " + (up?"up":"down"); c.textContent = up ? "● esclavo responde" : "● esclavo sin respuesta"; }
+
+/* ------------------------------------------------------------ generador */
+const GEN = {
+  1:{n:"FC 01 · read_coils", t:"co", cnt:true},  2:{n:"FC 02 · read_discrete_inputs", t:"di", cnt:true},
+  3:{n:"FC 03 · read_holding_registers", t:"hr", cnt:true}, 4:{n:"FC 04 · read_input_registers", t:"ir", cnt:true},
+  5:{n:"FC 05 · write_coil", t:"co"}, 15:{n:"FC 15 · write_coils (bytes)", t:"co", cnt:true},
+  6:{n:"FC 06 · write_register", t:"hr"}, 16:{n:"FC 16 · write_registers", t:"hr", cnt:true},
+};
+let gBits = [false,true,true,false,true], gRegs = [240,550,1000,60,1], gVal = 0;
+const h2 = n => n.toString(16).toUpperCase().padStart(2,"0");
+const w16 = n => h2((n>>8)&255)+" "+h2(n&255);
+function genInit(){
+  $("#gFc").innerHTML = Object.entries(GEN).map(([k,g]) => `<option value="${k}" style="color:var(--${g.t})">${g.n}</option>`).join("");
+  $("#gFc").value = "15";
+  ["gFc","gAddr","gCnt"].forEach(id => $("#"+id).oninput = () => { syncLen(); genRender(); });
+  syncLen(); genRender();
+}
+function syncLen(){
+  const n = Math.max(1, Math.min(+$("#gCnt").value || 1, 16));
+  while (gBits.length < n) gBits.push(false); gBits.length = n;
+  while (gRegs.length < n) gRegs.push(0); gRegs.length = n;
+}
+function packBytes(){
+  const out = [];
+  for (let i = 0; i < gBits.length; i += 8){
+    let v = 0; for (let k = 0; k < 8 && i+k < gBits.length; k++) if (gBits[i+k]) v |= 1 << k;
+    out.push(v);
+  }
+  return out;
+}
+function genRender(){
+  const fc = +$("#gFc").value, g = GEN[fc], addr = +$("#gAddr").value || 0, n = gBits.length;
+  $("#gFc").style.color = `var(--${g.t})`;
+  $("#gCnt").disabled = !g.cnt; $("#gCntL").style.opacity = g.cnt ? 1 : .4;
+  let ed = "";
+  if (fc === 15){
+    ed = `<div class="bits">${packBytes().map((v, bi) => {
+      let cells = "";
+      for (let k = 7; k >= 0; k--){ const i = bi*8+k, ok = i < n;
+        cells += `<span class="b ${ok&&gBits[i]?"on":""} ${ok?"":"na"}" data-i="${i}" title="${ok?"coil "+(addr+i):"relleno con 0"}">${ok?addr+i:"·"}</span>`; }
+      return `<div class="byte"><span class="bin">byte ${bi}</span>${cells}<input data-b="${bi}" value="0x${h2(v)}" title="Escriba el byte (0x16, 22, 0b10110)"><span class="bin">${v.toString(2).padStart(8,"0")}</span></div>`;
+    }).join("")}<div class="bin" style="font-size:11.5px">bit 7 … bit 0 · el coil de la dirección inicial va en el bit menos significativo</div></div>`;
+  } else if (fc === 5){
+    ed = `<div class="bits"><div class="byte"><span class="b ${gVal?"on":""}" data-one="1">${addr}</span><span class="bin">${gVal?"ON → FF 00":"OFF → 00 00"}</span></div></div>`;
+  } else if (fc === 16){
+    ed = `<div class="regs">${gRegs.map((v,i) => `<input data-r="${i}" type="number" value="${v}" title="HR ${addr+i}">`).join("")}</div>`;
+  } else if (fc === 6){
+    ed = `<div class="regs"><input id="g6" type="number" value="${gRegs[0]}" title="HR ${addr}"></div>`;
+  }
+  $("#gEd").innerHTML = ed;
+  document.querySelectorAll("#gEd .b[data-i]").forEach(b => b.onclick = () => { const i = +b.dataset.i; if (i < n){ gBits[i] = !gBits[i]; genRender(); } });
+  document.querySelectorAll("#gEd input[data-b]").forEach(inp => inp.onchange = () => {
+    const s = inp.value.trim().toLowerCase(), v = s.startsWith("0b") ? parseInt(s.slice(2),2) : Number(s);
+    if (!(v >= 0 && v <= 255)) return genRender();
+    const bi = +inp.dataset.b; for (let k = 0; k < 8; k++) if (bi*8+k < n) gBits[bi*8+k] = !!(v & (1<<k));
+    genRender();
+  });
+  const one = $("#gEd [data-one]"); if (one) one.onclick = () => { gVal = gVal ? 0 : 1; genRender(); };
+  document.querySelectorAll("#gEd input[data-r]").forEach(inp => inp.oninput = () => { gRegs[+inp.dataset.r] = +inp.value; genOut(); });
+  const g6 = $("#g6"); if (g6) g6.oninput = () => { gRegs[0] = +g6.value; genOut(); };
+  genOut();
+}
+function genStmt(){
+  const fc = +$("#gFc").value, a = +$("#gAddr").value || 0, n = gBits.length, U = ", device_id=1";
+  const py = b => b ? "True" : "False";
+  return {
+    1:`c.read_coils(${a}, count=${n}${U}).bits[:${n}]`, 2:`c.read_discrete_inputs(${a}, count=${n}${U}).bits[:${n}]`,
+    3:`c.read_holding_registers(${a}, count=${n}${U}).registers`, 4:`c.read_input_registers(${a}, count=${n}${U}).registers`,
+    5:`c.write_coil(${a}, ${py(gVal)}${U})`, 15:`c.write_coils(${a}, [${gBits.map(py).join(", ")}]${U})`,
+    6:`c.write_register(${a}, ${gRegs[0]}${U})`, 16:`c.write_registers(${a}, [${gRegs.join(", ")}]${U})`,
+  }[fc];
+}
+function genPdu(){
+  const fc = +$("#gFc").value, a = +$("#gAddr").value || 0, n = gBits.length;
+  const bad = v => !(Number.isInteger(v) && v >= 0 && v <= 65535);
+  if (fc <= 4) return `${h2(fc)} ${w16(a)} ${w16(n)}`;
+  if (fc === 5) return `05 ${w16(a)} ${gVal ? "FF 00" : "00 00"}`;
+  if (fc === 15){ const by = packBytes(); return `0F ${w16(a)} ${w16(n)} ${h2(by.length)} ${by.map(h2).join(" ")}`; }
+  if (fc === 6) return bad(gRegs[0]) ? null : `06 ${w16(a)} ${w16(gRegs[0])}`;
+  if (fc === 16) return gRegs.some(bad) ? null : `10 ${w16(a)} ${w16(n)} ${h2(2*n)} ${gRegs.map(w16).join(" ")}`;
+}
+function plcWrites(){
+  return plcSt?.status?.status === "Running" &&
+    (plcSt.devices || []).some(d => +d.coil_size > 0 || +d.hr_write_size > 0);
+}
+function plcOverwrites(fc, addr, n){
+  // ¿OpenPLC (Running) escribe en cada ciclo sobre esas direcciones? (lámina 34)
+  if (plcSt?.status?.status !== "Running") return false;
+  const tbl = [5, 15].includes(fc) ? "coil" : [6, 16].includes(fc) ? "hr_write" : null;
+  if (!tbl) return false;
+  return plcSt.devices.some(d => {
+    const s = +d[tbl + "_start"], z = +d[tbl + "_size"];
+    return z > 0 && addr < s + z && addr + n > s;
+  });
+}
+function genOut(){
+  const p = genPdu(), fc = +$("#gFc").value;
+  const n = [5, 6].includes(fc) ? 1 : gBits.length;
+  const warn = plcOverwrites(fc, +$("#gAddr").value || 0, n)
+    ? `<div class="err">⚠ OpenPLC está en Running y escribe esas direcciones cada ~100 ms: su valor durará un ciclo. Cambie la condición (consigna/campo) o pulse Stop PLC.</div>` : "";
+  $("#gOut").innerHTML = warn + `<div><span class="k">sentencia:</span> ${esc(genStmt())}</div>` + (p
+    ? `<div><span class="k">PDU Query predicha (${p.split(" ").length} bytes):</span> <b>${p}</b></div>
+       <div><span class="k">MBAP:</span> tid · 00 00 · ${w16(p.split(" ").length + 1)} · 01</div>
+       ${fc <= 4 ? `<div class="k">los valores vendrán en la Response</div>` : ""}`
+    : `<div class="err">valor fuera de 0–65535: pymodbus lo rechazará antes de enviar (lámina 31 · paso 6)</div>`);
+}
+
+/* --------------------------------------------------------------- pcap */
+function refreshPcap(c){
+  if (c) cfg.capture = c;
+  const rec = cfg.capture?.recording;
+  $("#pcapBtn").textContent = rec ? "■ Detener pcap" : "● Grabar pcap";
+  $("#pcapSt").hidden = !rec; $("#pcapSt").className = "chip rec";
+  $("#pcapSt").textContent = rec ? "REC " + cfg.capture.file : "";
+  const live = cfg.capture?.live;
+  $("#wsBtn").textContent = live ? "■ Detener captura Wireshark" : "🦈 Abrir Wireshark en vivo";
+  $("#wsSt").hidden = !live;
+  $("#wsSt").title = live ? `interfaz ${cfg.capture.iface} · ${cfg.capture.wireshark}` : "";
+}
+
+/* ---------------------------------------------------------------- init */
+async function init(){
+  cfg = await api("/api/config");
+  $("#target").textContent = cfg.target;
+  let id = cfg.active || cfg.scenarios[0].id;
+  try{ const s = localStorage.getItem("otlab.scn"); if (s && cfg.scenarios.some(x => x.id === s)) id = s; }catch{}
+  const h = location.hash.slice(1); if (h && cfg.scenarios.some(x => x.id === h)) id = h;
+  genInit(); refreshPcap();
+  selectScn(id);
+  api("/api/plc/status").then(r => { if (r.ok){ plcSt = r; genOut(); renderScn(); } }).catch(() => {});
+  const hist = await api("/api/history"); history = hist.history || []; sel = history.length - 1; renderCap();
+  const st = await api("/api/state");
+  setConn(st.ok); if (st.ok){ state = st.state; renderTopo(); }
+
+  $("#runAll").onclick = () => runSteps("all");
+  $("#refresh").onclick = () => busy(async () => {
+    const r = await api("/api/state"); setConn(r.ok);
+    if (r.ok){ prev = state; state = r.state; cfg.active = r.active; renderTabs(); renderScn(); renderTopo(); } else showErr(r.error);
+  });
+  $("#gSend").onclick = () => busy(async () => {
+    const p = genPdu();
+    const r = await api("/api/run", {stmts:[genStmt()], label:"Generador · " + GEN[$("#gFc").value].n,
+                                      checks: p ? [{i:0, dir:"TX", pdu:p}] : []});
+    r.ok ? addEntries(r.entries) : showErr(r.error);
+  });
+  const free = () => busy(async () => {
+    const s = $("#free").value.trim(); if (!s) return;
+    const r = await api("/api/run", {stmts:[s], label:"Consola · " + s.slice(0, 40)});
+    r.ok ? addEntries(r.entries) : showErr(r.error);
+  });
+  $("#freeSend").onclick = free;
+  $("#free").onkeydown = ev => { if (ev.key === "Enter") free(); };
+  $("#copyMd").onclick = async () => {
+    const md = await (await fetch("/api/export.md")).text();
+    try { await navigator.clipboard.writeText(md); $("#copyMd").textContent = "✓ Copiado"; }
+    catch { $("#copyMd").textContent = "✗ sin permiso"; }
+    setTimeout(() => $("#copyMd").textContent = "Copiar MD", 1500);
+  };
+  $("#wsBtn").onclick = () => busy(async () => {
+    const live = cfg.capture?.live;
+    if (!live) $("#busy").textContent = "⏳ abriendo Wireshark (la 1ª vez descarga netshoot)…";
+    const r = await api(live ? "/api/wireshark/stop" : "/api/wireshark/start", {});
+    $("#busy").textContent = "⏳ ejecutando en docker…";
+    r.ok ? refreshPcap(r.capture) : showErr(r.error);
+  });
+  $("#pcapBtn").onclick = () => busy(async () => {
+    if (cfg.capture?.recording){
+      const r = await api("/api/capture/stop", {});
+      if (!r.ok) return showErr(r.error);
+      refreshPcap(r.capture);
+      $("#cap").insertAdjacentHTML("afterbegin", `<div class="checks ok">✓ guardado ${esc(r.saved)} (${r.bytes} bytes) · ábralo con Wireshark</div>`);
+    } else {
+      $("#busy").textContent = "⏳ arrancando tcpdump (la 1ª vez descarga netshoot ≈ 400 MB)…";
+      const r = await api("/api/capture/start", {name: $("#pcapName").value || scn.id});
+      $("#busy").textContent = "⏳ ejecutando en docker…";
+      r.ok ? refreshPcap(r.capture) : showErr(r.error);
+    }
+  });
+}
+init();
+</script>
+</body>
+</html>

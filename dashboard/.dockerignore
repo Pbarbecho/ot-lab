@@ -1,0 +1,5 @@
+docs/
+README.md
+README.html
+__pycache__/
+*.pyc

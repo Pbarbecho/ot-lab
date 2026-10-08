@@ -19,6 +19,17 @@ Servicios web: OpenPLC :8080 (openplc/openplc) · Ignition :8088 (admin/lab1234!
 
 Nota Linux: la versión `.bak` es la original y tiene dos fallos conocidos (Conpot `command` y bind mount de Ignition, ver guía §4.7); la versión macOS funciona también en Linux y es la recomendada.
 
+## Dashboard de la Práctica 1 (opcional)
+
+Panel web para Modbus TCP, pymodbus y OpenPLC (láminas 19–36): ejecuta las peticiones dentro de Docker y muestra el
+proceso y las tramas. **No modifica los compose existentes**: se suma con un segundo `-f` y arranca solo con Docker.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dashboard.yml up -d --build   # Windows: docker-compose.windows.yml
+```
+
+Abrir <http://localhost:8000>. Documentación: `dashboard/README.md` (o `dashboard/README.html` en el navegador).
+
 ## Estructura
 - `docker-compose.yml`          — versión macOS (platform amd64 en openplc/conpot, volumen con nombre para Ignition)
 - `docker-compose.windows.yml`  — versión Windows (volúmenes con nombre para Ignition, FUXA y Node-RED; notas sobre puertos reservados y CRLF)

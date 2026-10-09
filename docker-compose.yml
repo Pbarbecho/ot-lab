@@ -1,15 +1,27 @@
-# ot-lab — versión para macOS (Docker Desktop, Intel o Apple Silicon)
+# ot-lab — un solo compose para macOS, Windows 10/11 (Docker Desktop + WSL 2) y Linux
 #
-# Cambios respecto a la versión Linux:
-#  - platform: linux/amd64 en openplc y conpot (solo publican imagen amd64;
-#    en Apple Silicon corren bajo Rosetta/QEMU; activar "Use Rosetta" en
-#    Docker Desktop > Settings > General para mejor rendimiento).
-#  - restart: unless-stopped para que el lab vuelva solo tras reiniciar el Mac.
-#  - Puerto 8883 de mosquitto eliminado (no hay listener TLS configurado).
-#  - Nota: en macOS el host NO alcanza las IPs 172.28.0.x directamente; usa
-#    siempre localhost:<puerto publicado>. Entre contenedores sí funcionan.
+#   docker compose up -d        (Terminal, PowerShell o WSL, dentro de la carpeta ot-lab)
 #
-# Copia original (Linux): docker-compose.linux.yml.bak
+# Arquitectura: se detecta sola. Docker descarga la variante amd64 o arm64 de cada imagen;
+#  solo openplc y conpot publican únicamente amd64 y llevan platform: linux/amd64
+#  (en Apple Silicon / Windows ARM corren emuladas; en Mac active "Use Rosetta" en
+#  Docker Desktop > Settings > General para mejor rendimiento).
+#
+# Persistencia local: FUXA y Node-RED guardan sus proyectos en ./fuxa-data y ./nodered-data
+#  (bind mounts, visibles y respaldables en el disco). Ignition usa un volumen con nombre
+#  porque la imagen necesita sembrar su data/ inicial.
+#
+# Notas por sistema:
+#  - Todos: el host alcanza los servicios por localhost:<puerto publicado>; las IPs
+#    172.28.0.x solo funcionan entre contenedores.
+#  - Windows: clone dentro de WSL (\\wsl$\Ubuntu\home\<usuario>\ot-lab) y no en C:\Users\...
+#    (los bind mounts sobre NTFS son lentos). Los archivos montados deben tener fin de
+#    línea LF (lo fuerza .gitattributes; Mosquitto no arranca con CRLF).
+#  - Windows: si el puerto 50000 falla con "An attempt was made to access a socket in a way
+#    forbidden", está en un rango reservado por Hyper-V (netsh interface ipv4 show
+#    excludedportrange protocol=tcp): cambie el mapeo a "4850:50000".
+#  - Linux nativo: Node-RED corre con uid 1000; si su usuario no es el 1000, ejecute una vez
+#    sudo chown -R 1000:1000 nodered-data
 
 name: ot-lab
 
@@ -103,7 +115,7 @@ services:
     container_name: fuxa
     restart: unless-stopped
     volumes:
-      - ./fuxa-data:/usr/src/app/FUXA/server/_appdata
+      - ./fuxa-data:/usr/src/app/FUXA/server/_appdata     # proyectos FUXA en el disco local
     ports: ["1881:1881"]
     networks:
       ot-lab: { ipv4_address: 172.28.0.51 }
@@ -113,7 +125,7 @@ services:
     container_name: node-red
     restart: unless-stopped
     volumes:
-      - ./nodered-data:/data
+      - ./nodered-data:/data                             # flujos Node-RED en el disco local
     ports: ["1880:1880"]
     networks:
       ot-lab: { ipv4_address: 172.28.0.52 }

@@ -1,6 +1,8 @@
-# Datos persistentes de los contenedores (se regeneran)
-fuxa-data/
-nodered-data/
+# Datos persistentes de los contenedores (locales; solo se versiona la carpeta vacía)
+fuxa-data/*
+!fuxa-data/.gitkeep
+nodered-data/*
+!nodered-data/.gitkeep
 ignition-data/
 
 # Capturas de red (pueden ser grandes; súbelas aparte si hacen falta)

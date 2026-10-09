@@ -323,8 +323,57 @@ function logOp(res, addr) {
 function parseVals(txt, bits) {
   return txt.split(/[,;\s]+/).filter(Boolean).map(v => bits ? /^(1|t|true|on|v|si|sí)$/i.test(v) : (v.trim()));
 }
+function opAlert(pyline, html) {   // alerta en «Última operación»: la petición no se envía
+  $('#pyline').innerHTML = `&gt;&gt;&gt; ${esc(pyline)}\n<span class="c"># no enviado: la web lo rechazó antes de llegar a pymodbus</span>`;
+  const b = $('#op-banner'); b.className = 'banner'; b.innerHTML = `<b>No se puede:</b> ${html}`;
+  $('#op-meta').textContent = 'rechazado · ninguna trama viajó';
+  $('#frame-query .fbody').innerHTML = '<span class="gr">—</span>'; $('#frame-response .fbody').innerHTML = '<span class="gr">—</span>';
+  toast('Operación rechazada: vea «Última operación»', true);
+  // también queda en la tabla a entregar: cuenta como intento, sin trama
+  const row = { n: '—', hora: new Date().toLocaleTimeString('es-EC', { hour12: false }), fc: '—', nombre: 'rechazado por la web (no enviado)', dir: '—', datos: '—', pq: '—', pr: '—', valor: html.replace(/<[^>]+>/g, '').slice(0, 90), ms: 0, bad: true };
+  S.log.push(row); if (S.log.length > 300) S.log.shift();
+  const tb = $('#log tbody'); const tr = document.createElement('tr'); tr.className = 'new err';
+  tr.innerHTML = `<td>${row.n}</td><td class="mono">${row.hora}</td><td class="mono">${row.fc}</td><td>${esc(row.nombre)}</td><td class="mono">${row.dir}</td><td>${row.datos}</td><td class="mono">${row.pq}</td><td class="mono">${row.pr}</td><td>${esc(row.valor)}</td><td class="mono">${row.ms}</td>`;
+  tb.prepend(tr);
+}
+function validateOp(op) {
+  const addrBad = v => !Number.isInteger(v) || v < 0 || v > 65535;
+  if (addrBad(op.addr)) return [`c.read_coils(${op.addr}, …)`, `la dirección debe ser un entero entre 0 y 65535 (en la trama viaja en 2 bytes).`];
+  if (op.read) {
+    if (!Number.isInteger(op.count) || op.count < 1) return [`c.${READ_NAMES[op.read]}(${op.addr}, count=${op.count})`, `<code>count</code> debe ser al menos 1.`];
+    const max = (op.read === 'coils' || op.read === 'di') ? 2000 : 125;
+    if (op.count > max) return [`c.${READ_NAMES[op.read]}(${op.addr}, count=${op.count})`, `Modbus limita una lectura a ${max} ${max === 2000 ? 'bits' : 'registros'} por petición (la PDU cabe en 253 bytes). Pida menos o haga varias peticiones.`];
+    return null;
+  }
+  const bits = op.write === 'coil' || op.write === 'coils'; const multi = op.write === 'coils' || op.write === 'registers';
+  const raw = String(op.val).split(/[,;\s]+/).filter(Boolean);
+  const fn = { coil: 'write_coil', coils: 'write_coils', register: 'write_register', registers: 'write_registers' }[op.write];
+  const py = `c.${fn}(${op.addr}, ${multi ? '[' + raw.join(', ') + ']' : raw[0]}, device_id=${S.session.unit})`;
+  if (!raw.length) return [py, 'indique un valor.'];
+  if (!multi && raw.length > 1) return [py, `FC ${bits ? '05' : '06'} escribe <b>un solo</b> ${bits ? 'coil' : 'registro'}. Para varios use FC ${bits ? '15 (varios coils)' : '16 (varios registros)'}.`];
+  if (bits) {
+    const bad = raw.filter(v => !/^(0|1|t|f|true|false|on|off|v|si|sí|no)$/i.test(v));
+    if (bad.length) return [py, `un <b>coil es un bit</b>: solo admite 0/1 (o T/F, true/false, on/off). «${esc(bad[0])}» no cabe en un bit; en la trama FC 05 solo existen <code>ff 00</code> (ON) y <code>00 00</code> (OFF). Si quería escribir un número, use un <b>holding register</b> (FC 06/16).`];
+    if (raw.length > 1968) return [py, 'FC 15 admite como máximo 1968 coils por petición.'];
+  } else {
+    const bad = raw.filter(v => !/^-?\d+$/.test(v));
+    if (bad.length) return [py, `un <b>registro es un entero de 16 bits</b> (0–65535). «${esc(bad[0])}» no es un entero; los decimales se acuerdan con escala (23,5 °C → 235, ×10).`];
+    if (raw.length > 123) return [py, 'FC 16 admite como máximo 123 registros por petición.'];
+  }
+  return null;
+}
+const READ_NAMES = { coils: 'read_coils', di: 'read_discrete_inputs', hr: 'read_holding_registers', ir: 'read_input_registers' };
+function declaredWarning(table, addr, count) {   // aviso si se toca una dirección que el tablero no declara (modbus-sim)
+  if (!S.session.connected || S.session.host !== '172.28.0.30') return '';
+  const T = TABLEROS[S.tablero]; if (!T) return '';
+  const declared = new Set([...T.inputs, ...T.outputs].filter(i => i.table === table).map(i => i.addr));
+  if (!declared.size) return `la tabla <b>${TABLE_INFO[table].name}</b> no tiene elementos en el tablero actual: el esclavo responde 0 (<code>initializeUndefinedRegisters</code>) o excepción 02 si está desactivado.`;
+  const missing = []; for (let a = addr; a < addr + count; a++) if (!declared.has(a)) missing.push(a);
+  return missing.length ? `la${missing.length > 1 ? 's' : ''} dirección${missing.length > 1 ? 'es' : ''} <b>${missing.join(', ')}</b> no está${missing.length > 1 ? 'n' : ''} declarada${missing.length > 1 ? 's' : ''} en el tablero (${TABLE_INFO[table].name}): el esclavo contesta 0 por <code>initializeUndefinedRegisters</code>; con esa opción desactivada respondería excepción 02 Illegal Data Address.` : '';
+}
 async function runOp(op, btn) {
-  if (!S.session.connected) { toast('Primero conecte con el esclavo (pestaña 1a · Sesión).', true); return null; }
+  if (!S.session.connected) { toast('Primero conecte con el esclavo (pestaña pymodbus · Sesión).', true); return null; }
+  const bad = validateOp(op); if (bad) { opAlert(bad[0], bad[1]); return null; }
   busy(btn, true);
   try {
     let res, addr = op.addr, count = 1;
@@ -340,6 +389,8 @@ async function runOp(op, btn) {
       res = await api('/api/write', body);
     }
     showOp(res); logOp(res, addr);
+    const warn = declaredWarning(FC_TABLE[res.fc], addr, count);
+    if (warn) { const b = $('#op-banner'); if (b.classList.contains('hidden')) { b.className = 'banner'; b.innerHTML = `<b>Aviso:</b> ${warn}`; } else b.innerHTML += `<br><b>Aviso:</b> ${warn}`; }
     if (res.ok) {
       if (op.read) res.values.forEach((v, i) => { S.vals[op.read][addr + i] = v; });
       else {

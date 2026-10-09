@@ -912,7 +912,7 @@ function drawerInit() {
 function zoomInit() {
   const KEY = 'explorer-zoom'; let z = 1;
   try { z = parseFloat(sessionStorage.getItem(KEY)) || 1; } catch (e) { }
-  const apply = () => { z = Math.min(2.5, Math.max(0.5, Math.round(z * 20) / 20)); document.documentElement.style.zoom = z; $('#zoom-val').textContent = Math.round(z * 100) + ' %'; try { sessionStorage.setItem(KEY, String(z)); } catch (e) { } };
+  const apply = () => { z = Math.min(2.5, Math.max(0.5, Math.round(z * 20) / 20)); document.documentElement.style.zoom = z; document.documentElement.style.setProperty('--z', z); $('#zoom-val').textContent = Math.round(z * 100) + ' %'; try { sessionStorage.setItem(KEY, String(z)); } catch (e) { } };
   $('#zoom-in').onclick = () => { z += 0.1; apply(); };
   $('#zoom-out').onclick = () => { z -= 0.1; apply(); };
   $('#zoom-val').onclick = () => { z = 1; apply(); };

@@ -316,3 +316,7 @@ body.solo-panel #btn-tab-open,body.solo-panel #btn-drawer{display:none}
 .chip.zoom button{border:none;background:rgba(255,255,255,.15);color:#fff;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1;font-weight:700}
 .chip.zoom button:hover{background:var(--rojo)}
 .chip.zoom b{color:#fff;font-family:var(--mono);font-size:13px;min-width:46px;text-align:center;cursor:pointer}
+
+/* con zoom < 100 % el tablero y el escenario encogen de verdad (no se reexpanden para llenar el ancho) */
+:root{--z:1}
+.dg,.esc{width:calc(100% * var(--z));max-width:100%;margin:0 auto}

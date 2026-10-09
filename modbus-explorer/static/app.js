@@ -571,7 +571,7 @@ function init() {
   TABLEROS.custom = customTablero();
   const ts = $('#tablero'); tableroOptions();
   ts.onchange = () => { S.tablero = ts.value; buildTablero(); bcast({ type: 'tablero', ed: {}, tablero: ts.value }); };
-  edInit(); escInit(); layoutInit();
+  edInit(); escInit(); layoutInit(); zoomInit();
   buildTablero(); renderSteps('#steps-1b', STEPS_1B);
   $$('.tabs button[data-tab]').forEach(b => b.onclick = () => { $$('.tabs button[data-tab]').forEach(x => x.classList.toggle('on', x === b)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === b.dataset.tab)); if (b.dataset.tab === 'tjson') jsonRefresh(); if (b.dataset.tab === 'tws') { capRefresh(); capList(); } if (b.dataset.tab === 't1b') plcRefresh(); });
   $('#btn-connect').onclick = () => connectTo(currentTarget());
@@ -904,5 +904,24 @@ function drawerInit() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && auto) close(0); });
   // al activar una pestaña desde la barra normal, marcar también el riel
   $$('.tabs button[data-tab]').forEach(t => t.addEventListener('click', () => $$('#rail [data-railtab]').forEach(x => x.classList.toggle('on', x.dataset.railtab === t.dataset.tab))));
+  apply();
+}
+
+
+/* ------------------------------------------------------------------ zoom por ventana (el del navegador es por sitio y afecta a todas las pestañas) */
+function zoomInit() {
+  const KEY = 'explorer-zoom'; let z = 1;
+  try { z = parseFloat(sessionStorage.getItem(KEY)) || 1; } catch (e) { }
+  const apply = () => { z = Math.min(2.5, Math.max(0.5, Math.round(z * 20) / 20)); document.documentElement.style.zoom = z; $('#zoom-val').textContent = Math.round(z * 100) + ' %'; try { sessionStorage.setItem(KEY, String(z)); } catch (e) { } };
+  $('#zoom-in').onclick = () => { z += 0.1; apply(); };
+  $('#zoom-out').onclick = () => { z -= 0.1; apply(); };
+  $('#zoom-val').onclick = () => { z = 1; apply(); };
+  document.addEventListener('keydown', e => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); z += 0.1; apply(); }
+    else if (e.key === '-') { e.preventDefault(); z -= 0.1; apply(); }
+    else if (e.key === '0') { e.preventDefault(); z = 1; apply(); }
+  });
+  document.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); z += e.deltaY < 0 ? 0.05 : -0.05; apply(); } }, { passive: false });
   apply();
 }

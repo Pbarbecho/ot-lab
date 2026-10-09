@@ -700,19 +700,24 @@ function escUpdate() {
   const set = (id, cls, on) => { const e = $('#' + id); if (e) e.classList.toggle(cls, !!on); };
   set('l-cap', 'live', S.capRunning); set('esc-cap', 'live', S.capRunning); set('l-browser', 'live', true);
   $('#esc-meta').textContent = `${s.connected ? 'sesión → ' + s.host + ':' + s.port : 'sin sesión'} · PLC ${S.plcStatus || '?'}${S.capRunning ? ' · capturando' : ''}`;
-  if (running && !escTimer) escTimer = setInterval(() => escDot('plc-sim', 900), 1000);
+  if (running && !escTimer) escTimer = setInterval(() => escQueryResponse('plc-sim', 420), 1000);   // cada ciclo: Query baja, Response sube
   if (!running && escTimer) { clearInterval(escTimer); escTimer = null; }
 }
 function escDot(link, dur, back) {
+  // Query: por el cable de ida (maestro → esclavo). Response: por el cable de vuelta (.up) si existe, o el mismo cable al revés.
   const svg = escSvg(); if (!svg || svg.classList.contains('hidden')) return;
-  const p = svg.querySelector(`path[data-link="${link}"]:not(.up)`) || svg.querySelector('#' + link); const fx = svg.querySelector('#esc-fx, #cim-fx'); if (!p || !fx) return;
-  const c = el('circle', { r: 7, class: 'dot' });
-  const am = el('animateMotion', { dur: `${dur || 600}ms`, begin: 'indefinite', fill: 'freeze', path: p.getAttribute('d'), keyPoints: back ? '1;0' : '0;1', keyTimes: '0;1', calcMode: 'linear' });
+  const down = svg.querySelector(`path[data-link="${link}"]:not(.up)`) || svg.querySelector('#' + link);
+  const up = svg.querySelector(`path.up[data-link="${link}"]`);
+  const fx = svg.querySelector('#esc-fx, #cim-fx'); if (!down || !fx) return;
+  const p = back && up ? up : down; const reverse = back && !up;
+  const c = el('circle', { r: 7, class: 'dot' + (back ? ' resp' : '') });
+  const am = el('animateMotion', { dur: `${dur || 600}ms`, begin: 'indefinite', fill: 'freeze', path: p.getAttribute('d'), keyPoints: reverse ? '1;0' : '0;1', keyTimes: '0;1', calcMode: 'linear' });
   c.appendChild(am); fx.appendChild(c); am.beginElement(); setTimeout(() => c.remove(), (dur || 600) + 80);
 }
+function escQueryResponse(link, dur) { escDot(link, dur); setTimeout(() => escDot(link, dur, true), dur + 40); }
 function escPacket() {
   const s = S.session || {}; const link = s.host === '172.28.0.10' ? 'ex-plc' : 'ex-sim';
-  escDot(link, 500); setTimeout(() => escDot(link, 500, true), 520); escDot('l-browser', 400);
+  escQueryResponse(link, 450); escDot('l-browser', 400);
 }
 function escInit() {
   const key = 'esc-hidden', keyD = 'esc-detail'; let hidden = false, detail = false;

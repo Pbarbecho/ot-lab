@@ -200,6 +200,7 @@ ul.files a{color:var(--rojo);font-weight:600;text-decoration:none}
 .esc .ll.g{fill:var(--gris);stroke:#fff}
 .esc .ll.live{fill:var(--rojo)}
 .esc .dot{fill:var(--rojo);stroke:#fff;stroke-width:2}
+.esc .dot.resp{fill:var(--ink)}
 .legend .sw.gris{background:var(--gris)}
 /* editor Modbus server */
 .edcols{display:grid;grid-template-columns:1fr;gap:14px;margin-top:6px}

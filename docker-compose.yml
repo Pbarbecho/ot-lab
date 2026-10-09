@@ -47,8 +47,9 @@ services:
       OPENPLC_USER: "openplc"
       OPENPLC_PASS: "openplc"
     volumes:
-      - ./modbus/server.json:/app/server.json:ro   # solo lectura: la web lo muestra, no lo edita
+      - ./modbus:/app/modbus                       # server.json y tablero.json: el editor «Modbus server» los escribe
       - ./captures:/app/captures                   # las capturas .pcap quedan en la carpeta compartida
+      - /var/run/docker.sock:/var/run/docker.sock  # solo para «Guardar y reiniciar modbus-sim» (quítelo si no lo quiere)
     ports: ["8500:8500"]
     depends_on: [modbus-sim]
     networks:

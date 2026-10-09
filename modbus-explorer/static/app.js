@@ -13,6 +13,24 @@ const FC_TABLE = { 1: 'coils', 2: 'di', 3: 'hr', 4: 'ir', 5: 'coils', 6: 'hr', 1
 const FC_WRITE = new Set([5, 6, 15, 16]);
 const dec = (v, d = 1) => (v / 10).toFixed(d).replace('.', ',');
 const i16 = v => (v > 32767 ? v - 65536 : v);
+const FORMATS = {
+  bool_onoff:   { label: 'bit · encendido/apagado', bits: true, format: 'bool_onoff' },
+  bool_pressed: { label: 'bit · pulsado',           bits: true, format: 'bool_pressed' },
+  bool_open:    { label: 'bit · abierta/cerrada',   bits: true, format: 'bool_open' },
+  bool_run:     { label: 'bit · marcha/parada',     bits: true, format: 'bool_run' },
+  bool_alarm:   { label: 'bit · sonando',           bits: true, format: 'bool_alarm' },
+  int:   { label: 'entero 0–65535', fmt: v => `${v}` },
+  x10c:  { label: '×10 · °C',       format: 'x10c' },
+  x10pct:{ label: '×10 · %',        format: 'x10pct' },
+  ppm:   { label: 'ppm',            format: 'ppm' },
+  hpa:   { label: 'hPa',            format: 'hpa' },
+  pct:   { label: '%',              format: 'pct' },
+  modo:  { label: '0 manual / 1 auto', format: 'modo' },
+  rpm:   { label: 'rpm',            fmt: v => `${v} rpm` },
+  lpm:   { label: 'L/min',          fmt: v => `${v} L/min` },
+};
+const ICONS = { thermo: 'termómetro', drop: 'gota', co2: 'CO₂', gauge: 'manómetro', knob: 'consigna', bell: 'umbral/alarma', fan: 'ventilador', led: 'LED', button: 'pulsador', door: 'puerta', pump: 'bomba', siren: 'sirena' };
+const fmtOf = it => (FORMATS[it.format] || FORMATS.int).fmt;
 
 /* ------------------------------------------------------------------ tableros (láminas 21, 30 y 31) */
 const TABLEROS = {
@@ -20,17 +38,17 @@ const TABLEROS = {
     label: 'Lámina 31 · 4 medidas y 5 parámetros (registros)',
     left: 'CAMPO · 4 MEDIDAS', right: '5 PARÁMETROS · HOLDING',
     inputs: [
-      { table: 'ir', addr: 0, name: 'Temperatura', icon: 'thermo', fmt: v => `${v} = ${dec(v)}°C` },
-      { table: 'ir', addr: 1, name: 'Humedad',     icon: 'drop',   fmt: v => `${v} = ${dec(v)} %` },
-      { table: 'ir', addr: 2, name: 'CO₂',         icon: 'co2',    fmt: v => `${v} ppm` },
-      { table: 'ir', addr: 3, name: 'Presión',     icon: 'gauge',  fmt: v => `${v} hPa` },
+      { table: 'ir', addr: 0, name: 'Temperatura', icon: 'thermo', format: 'x10c' },
+      { table: 'ir', addr: 1, name: 'Humedad',     icon: 'drop',   format: 'x10pct' },
+      { table: 'ir', addr: 2, name: 'CO₂',         icon: 'co2',    format: 'ppm' },
+      { table: 'ir', addr: 3, name: 'Presión',     icon: 'gauge',  format: 'hpa' },
     ],
     outputs: [
-      { table: 'hr', addr: 0, name: 'Consigna T',   icon: 'knob', fmt: v => `${v} = ${dec(v)}°C` },
-      { table: 'hr', addr: 1, name: 'Consigna HR',  icon: 'knob', fmt: v => `${v} = ${dec(v)} %` },
-      { table: 'hr', addr: 2, name: 'Umbral CO₂',   icon: 'bell', fmt: v => `${v} ppm` },
-      { table: 'hr', addr: 3, name: 'Ventilador %', icon: 'fan',  fmt: v => `${v} %` },
-      { table: 'hr', addr: 4, name: 'Modo',         icon: 'knob', fmt: v => `${v} ${v ? '(auto)' : '(manual)'}` },
+      { table: 'hr', addr: 0, name: 'Consigna T',   icon: 'knob', format: 'x10c' },
+      { table: 'hr', addr: 1, name: 'Consigna HR',  icon: 'knob', format: 'x10pct' },
+      { table: 'hr', addr: 2, name: 'Umbral CO₂',   icon: 'bell', format: 'ppm' },
+      { table: 'hr', addr: 3, name: 'Ventilador %', icon: 'fan',  format: 'pct' },
+      { table: 'hr', addr: 4, name: 'Modo',         icon: 'knob', format: 'modo' },
     ],
     json: `"inputRegister":   { "1": 235, "2": 480, "3": 612, "4": 1013 },
 "holdingRegister": { "1": 260, "2": 500, "3": 800,
@@ -50,17 +68,17 @@ const TABLEROS = {
     label: 'Lámina 30 · 4 entradas y 5 salidas (bits)',
     left: 'CAMPO · 4 PULSADORES / SENSORES', right: '5 SALIDAS · COILS',
     inputs: [
-      { table: 'di', addr: 0, name: 'Marcha',     icon: 'button', fmt: b => b ? '1 pulsado' : '0' },
-      { table: 'di', addr: 1, name: 'Paro',       icon: 'button', fmt: b => b ? '1 pulsado' : '0' },
-      { table: 'di', addr: 2, name: 'Emergencia', icon: 'button', fmt: b => b ? '1 pulsado' : '0' },
-      { table: 'di', addr: 3, name: 'Puerta',     icon: 'door',   fmt: b => b ? '1 abierta' : '0 cerrada' },
+      { table: 'di', addr: 0, name: 'Marcha',     icon: 'button', format: 'bool_pressed' },
+      { table: 'di', addr: 1, name: 'Paro',       icon: 'button', format: 'bool_pressed' },
+      { table: 'di', addr: 2, name: 'Emergencia', icon: 'button', format: 'bool_pressed' },
+      { table: 'di', addr: 3, name: 'Puerta',     icon: 'door',   format: 'bool_open' },
     ],
     outputs: [
-      { table: 'coils', addr: 0, name: 'LED verde',  icon: 'led',   fmt: b => b ? '1 encendido' : '0 apagado' },
-      { table: 'coils', addr: 1, name: 'LED rojo',   icon: 'led',   fmt: b => b ? '1 encendido' : '0 apagado' },
-      { table: 'coils', addr: 2, name: 'Ventilador', icon: 'fan',   fmt: b => b ? '1 encendido' : '0 apagado' },
-      { table: 'coils', addr: 3, name: 'Bomba',      icon: 'pump',  fmt: b => b ? '1 marcha' : '0 parada' },
-      { table: 'coils', addr: 4, name: 'Sirena',     icon: 'siren', fmt: b => b ? '1 sonando' : '0' },
+      { table: 'coils', addr: 0, name: 'LED verde',  icon: 'led',   format: 'bool_onoff' },
+      { table: 'coils', addr: 1, name: 'LED rojo',   icon: 'led',   format: 'bool_onoff' },
+      { table: 'coils', addr: 2, name: 'Ventilador', icon: 'fan',   format: 'bool_onoff' },
+      { table: 'coils', addr: 3, name: 'Bomba',      icon: 'pump',  format: 'bool_run' },
+      { table: 'coils', addr: 4, name: 'Sirena',     icon: 'siren', format: 'bool_alarm' },
     ],
     json: `"discreteInput": { "1": true, "2": false, "3": false, "4": true },
 "coils":         { "1": true, "2": false, "3": false, "4": false, "5": false }`,
@@ -76,15 +94,15 @@ const TABLEROS = {
     label: 'Lámina 21 · PLC del ejemplo (pulsador, LED, ventilador, T, CO₂)',
     left: 'CAMPO · ENTRADAS', right: 'SALIDAS Y PARÁMETROS',
     inputs: [
-      { table: 'di', addr: 0, name: 'Pulsador',    icon: 'button', fmt: b => b ? '1 pulsado' : '0' },
-      { table: 'ir', addr: 0, name: 'Temperatura', icon: 'thermo', fmt: v => `${v} = ${dec(v)}°C` },
-      { table: 'ir', addr: 1, name: 'CO₂',         icon: 'co2',    fmt: v => `${v} ppm` },
+      { table: 'di', addr: 0, name: 'Pulsador',    icon: 'button', format: 'bool_pressed' },
+      { table: 'ir', addr: 0, name: 'Temperatura', icon: 'thermo', format: 'x10c' },
+      { table: 'ir', addr: 1, name: 'CO₂',         icon: 'co2',    format: 'ppm' },
     ],
     outputs: [
-      { table: 'coils', addr: 0, name: 'LED',        icon: 'led',  fmt: b => b ? '1 encendido' : '0 apagado' },
-      { table: 'coils', addr: 1, name: 'Ventilador', icon: 'fan',  fmt: b => b ? '1 encendido' : '0 apagado' },
-      { table: 'hr',    addr: 0, name: 'Consigna',   icon: 'knob', fmt: v => `${v} = ${dec(v)}°C` },
-      { table: 'hr',    addr: 1, name: 'Umbral CO₂', icon: 'bell', fmt: v => `${v} ppm` },
+      { table: 'coils', addr: 0, name: 'LED',        icon: 'led',  format: 'bool_onoff' },
+      { table: 'coils', addr: 1, name: 'Ventilador', icon: 'fan',  format: 'bool_onoff' },
+      { table: 'hr',    addr: 0, name: 'Consigna',   icon: 'knob', format: 'x10c' },
+      { table: 'hr',    addr: 1, name: 'Umbral CO₂', icon: 'bell', format: 'ppm' },
     ],
     json: `"discreteInput":   { "1": true },
 "coils":           { "1": false, "2": false },
@@ -164,6 +182,10 @@ function buildTablero() {
     st.appendChild(el('text', { class: 'rs', x: 324, y: inf.y + 19 }, inf.sub));
   }
   S.items = [];
+  const nmax = Math.max(T.inputs.length, T.outputs.length, 4);
+  const H = nmax > 5 ? 40 + nmax * 92 + 8 : 500;
+  $('#dg').setAttribute('viewBox', `0 0 870 ${H}`);
+  st.querySelector('.plc').setAttribute('height', H - 48);
   const place = (list, x, isOut) => {
     const pitch = list.length > 4 ? 92 : 112;
     list.forEach((it, i) => {
@@ -188,14 +210,14 @@ function buildTablero() {
   S.items.forEach(refreshCard);
   updatePlcSub();
   renderSteps('#steps', T.steps);
-  $('#json-snippet').textContent = T.json;
+  $('#json-snippet').textContent = T.json || edJson();
 }
 function updatePlcSub() { const s = S.session; const t = $('#dg-plc-sub'); if (t) t.textContent = s.connected ? `${s.host}:${s.port} · unit ${s.unit}` : 'sin conexión'; $('#dg-target').textContent = s.connected ? `${s.host}:${s.port} · unit ${s.unit}` : 'sin conexión'; }
 function refreshCard(it, mode) {
   const v = S.vals[it.table][it.addr];
   it.tv.innerHTML = '';
   if (v === undefined) { it.tv.appendChild(el('tspan', { class: 'b' }, '—')); return; }
-  const txt = it.fmt(v);
+  const txt = fmtOf(it)(v);
   if (it.shown !== undefined && it.shown !== v && mode === 'w') {
     const raw = x => typeof x === 'boolean' ? (x ? '1' : '0') : String(x);
     it.tv.appendChild(el('tspan', { class: 'b' }, raw(it.shown)));
@@ -307,6 +329,7 @@ async function runOp(op, btn) {
       }
     }
     animate(res.fc, addr, count, res.ok);
+    escPacket();
     return res;
   } catch (e) { toast(e.message, true); if (/sesión/i.test(e.message)) { S.session.connected = false; setChipSession(); } return null; }
   finally { busy(btn, false); }
@@ -332,6 +355,7 @@ function fillForm(op) {
 /* ------------------------------------------------------------------ sesión */
 function targetById(id) { return S.targets.find(t => t.id === id); }
 function setChipSession() {
+  escUpdate();
   const c = $('#chip-session'); const s = S.session;
   c.textContent = s.connected ? `conectado · ${s.host}:${s.port} · unit ${s.unit}` : 'sin sesión Modbus';
   c.className = 'chip' + (s.connected ? ' ok' : ''); updatePlcSub();
@@ -374,6 +398,7 @@ function togglePoll() {
 
 /* ------------------------------------------------------------------ captura / Wireshark */
 function capRender(c) {
+  S.capRunning = !!c.running; escUpdate();
   const chip = $('#chip-capture');
   chip.textContent = c.running ? `● capturando ${c.seconds}s · ${c.bytes} B` : (c.file ? `captura ${c.file}` : 'sin captura');
   chip.className = 'chip' + (c.running ? ' bad' : (c.file ? ' ok' : ''));
@@ -389,7 +414,7 @@ async function capList() {
 }
 
 /* ------------------------------------------------------------------ OpenPLC */
-function plcChip(st) { const c = $('#chip-plc'); c.textContent = 'OpenPLC · ' + (st || '?'); c.className = 'chip' + (st === 'Running' ? ' ok' : (st === 'Stopped' ? ' bad' : '')); }
+function plcChip(st) { S.plcStatus = st; escUpdate(); const c = $('#chip-plc'); c.textContent = 'OpenPLC · ' + (st || '?'); c.className = 'chip' + (st === 'Running' ? ' ok' : (st === 'Stopped' ? ' bad' : '')); }
 async function plcRefresh() {
   try {
     const j = await api('/api/openplc/status');
@@ -456,9 +481,16 @@ async function jsonRefresh() {
 }
 
 /* ------------------------------------------------------------------ arranque */
+function tableroOptions() {
+  const ts = $('#tablero'); const cur = ts.value;
+  ts.innerHTML = Object.entries(TABLEROS).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join('');
+  if (cur) ts.value = cur;
+}
 function init() {
-  const ts = $('#tablero'); ts.innerHTML = Object.entries(TABLEROS).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join('');
+  TABLEROS.custom = customTablero();
+  const ts = $('#tablero'); tableroOptions();
   ts.onchange = () => { S.tablero = ts.value; buildTablero(); };
+  edInit(); escInit();
   buildTablero(); renderSteps('#steps-1b', STEPS_1B);
   $$('.tabs button').forEach(b => b.onclick = () => { $$('.tabs button').forEach(x => x.classList.toggle('on', x === b)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === b.dataset.tab)); if (b.dataset.tab === 'tjson') jsonRefresh(); if (b.dataset.tab === 'tws') { capRefresh(); capList(); } if (b.dataset.tab === 't1b') plcRefresh(); });
   $('#btn-connect').onclick = () => connectTo(currentTarget());
@@ -495,3 +527,172 @@ function init() {
   capRefresh(); plcPrograms(); plcRefresh();
 }
 document.addEventListener('DOMContentLoaded', init);
+
+
+/* ------------------------------------------------------------------ Modbus server · editor gráfico */
+const ED = { title: 'Mi tablero', left: 'CAMPO · ENTRADAS', right: 'SALIDAS Y PARÁMETROS', inputs: [], outputs: [], logLevel: 'DEBUG', init: true, dirty: false };
+const DEF_ITEM = { di: { name: 'Pulsador', icon: 'button', format: 'bool_pressed', value: false }, coils: { name: 'LED', icon: 'led', format: 'bool_onoff', value: false },
+                   ir: { name: 'Sensor', icon: 'gauge', format: 'int', value: 0 }, hr: { name: 'Parámetro', icon: 'knob', format: 'int', value: 0 } };
+function edAddresses() {   // dirección = orden dentro de cada tabla
+  const c = { di: 0, coils: 0, ir: 0, hr: 0 };
+  [...ED.inputs, ...ED.outputs].forEach(it => { it.addr = c[it.table]++; });
+}
+function customTablero() {
+  edAddresses();
+  const mk = it => ({ table: it.table, addr: it.addr, name: it.name, icon: it.icon, format: it.format });
+  const T = { label: `${ED.title} · editor (Modbus server)`, left: ED.left, right: ED.right, inputs: ED.inputs.map(mk), outputs: ED.outputs.map(mk), json: null, steps: [] };
+  const n = { di: 0, coils: 0, ir: 0, hr: 0 }; [...ED.inputs, ...ED.outputs].forEach(it => { n[it.table] = Math.max(n[it.table], it.addr + 1); });
+  const names = { di: ['FC 02', 'entradas digitales'], coils: ['FC 01', 'coils'], ir: ['FC 04', 'input registers'], hr: ['FC 03', 'holding registers'] };
+  for (const t of ['di', 'ir', 'coils', 'hr']) if (n[t]) T.steps.push({ t: `<b>${names[t][0]}</b> · leer ${n[t]} ${names[t][1]} en bloque · <code>count=${n[t]}</code>`, op: { read: t, addr: 0, count: n[t] } });
+  ED.outputs.forEach(it => {
+    if (it.table === 'coils') T.steps.push({ t: `<b>FC 05</b> · ${esc(it.name)} ON (coil ${it.addr})`, op: { write: 'coil', addr: it.addr, val: 'T' } });
+    else T.steps.push({ t: `<b>FC 06</b> · ${esc(it.name)} (HR ${it.addr}) ← valor`, op: { write: 'register', addr: it.addr, val: String(Number(it.value) || 0) } });
+  });
+  const hrs = ED.outputs.filter(i => i.table === 'hr'), cls = ED.outputs.filter(i => i.table === 'coils');
+  if (cls.length > 1) T.steps.push({ t: `<b>FC 15</b> · todos los coils en una trama`, op: { write: 'coils', addr: 0, val: cls.map(() => 'T').join(',') } });
+  if (hrs.length > 1) T.steps.push({ t: `<b>FC 16</b> · todos los holding en una trama`, op: { write: 'registers', addr: 0, val: hrs.map(i => Number(i.value) || 0).join(',') } });
+  return T;
+}
+function edJson() {
+  edAddresses();
+  const keys = { di: 'discreteInput', coils: 'coils', ir: 'inputRegister', hr: 'holdingRegister' };
+  const regs = { discreteInput: {}, coils: {}, inputRegister: {}, holdingRegister: {} };
+  [...ED.inputs, ...ED.outputs].forEach(it => { const bits = FORMATS[it.format] && FORMATS[it.format].bits; regs[keys[it.table]][String(it.addr + 1)] = bits ? !!it.value : (Number(it.value) & 0xFFFF); });
+  const line = (k) => `"${k}":${' '.repeat(Math.max(1, 18 - k.length))}{ ${Object.entries(regs[k]).map(([a, v]) => `"${a}": ${v}`).join(', ')} }`;
+  return `"initializeUndefinedRegisters": ${ED.init},\n` + Object.keys(regs).filter(k => Object.keys(regs[k]).length).map(line).join(',\n');
+}
+function edRow(it, list, i) {
+  const bits = it.table === 'di' || it.table === 'coils';
+  const fmts = Object.entries(FORMATS).filter(([k, f]) => !!f.bits === bits);
+  const d = document.createElement('div'); d.className = 'edrow' + (list === ED.outputs ? ' out' : '');
+  d.innerHTML = `<span class="ch">${{ di: 'DI', coils: 'coil', ir: 'IR', hr: 'HR' }[it.table]} ${it.addr}</span>
+    <input class="nm" value="${esc(it.name)}" title="nombre">
+    <select class="ic" title="icono">${Object.entries(ICONS).map(([k, v]) => `<option value="${k}" ${k === it.icon ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <select class="fm" title="formato / escala">${fmts.map(([k, f]) => `<option value="${k}" ${k === it.format ? 'selected' : ''}>${f.label}</option>`).join('')}</select>
+    ${bits ? `<select class="vl" title="valor inicial"><option value="0" ${!it.value ? 'selected' : ''}>0 false</option><option value="1" ${it.value ? 'selected' : ''}>1 true</option></select>` : `<input class="vl" type="number" min="0" max="65535" value="${Number(it.value) || 0}" title="valor inicial">`}
+    <span class="ops"><button data-op="up" title="subir">↑</button><button data-op="down" title="bajar">↓</button><button data-op="del" title="borrar">✕</button></span>`;
+  d.querySelector('.nm').oninput = e => { it.name = e.target.value; edChanged(false); };
+  d.querySelector('.ic').onchange = e => { it.icon = e.target.value; edChanged(); };
+  d.querySelector('.fm').onchange = e => { it.format = e.target.value; edChanged(); };
+  d.querySelector('.vl').onchange = e => { it.value = bits ? e.target.value === '1' : Number(e.target.value); edChanged(); };
+  d.querySelectorAll('[data-op]').forEach(b => b.onclick = () => {
+    const j = list.indexOf(it);
+    if (b.dataset.op === 'del') list.splice(j, 1);
+    if (b.dataset.op === 'up' && j > 0) [list[j - 1], list[j]] = [list[j], list[j - 1]];
+    if (b.dataset.op === 'down' && j < list.length - 1) [list[j + 1], list[j]] = [list[j], list[j + 1]];
+    edChanged();
+  });
+  return d;
+}
+function edRender() {
+  edAddresses();
+  const a = $('#ed-inputs'), b = $('#ed-outputs'); a.innerHTML = ''; b.innerHTML = '';
+  ED.inputs.forEach((it, i) => a.appendChild(edRow(it, ED.inputs, i)));
+  ED.outputs.forEach((it, i) => b.appendChild(edRow(it, ED.outputs, i)));
+  if (!ED.inputs.length) a.innerHTML = '<span class="gr">sin entradas · use los botones +</span>';
+  if (!ED.outputs.length) b.innerHTML = '<span class="gr">sin salidas · use los botones +</span>';
+  $('#ed-title').value = ED.title; $('#ed-left').value = ED.left; $('#ed-right').value = ED.right; $('#ed-log').value = ED.logLevel; $('#ed-init').checked = ED.init;
+}
+function edChanged(rerender = true) {
+  ED.dirty = true; $('#ed-status').textContent = 'cambios sin guardar';
+  TABLEROS.custom = customTablero(); tableroOptions();
+  if (rerender) edRender();
+  if (S.tablero !== 'custom') { S.tablero = 'custom'; $('#tablero').value = 'custom'; }
+  const keep = S.vals; buildTablero(); S.vals = keep; S.items.forEach(it => refreshCard(it));
+  $('#json-snippet').textContent = edJson();
+}
+function edLoadPreset(k) {
+  const T = TABLEROS[k]; if (!T) return;
+  const vals = { lam31: { ir: [235, 480, 612, 1013], hr: [260, 500, 800, 40, 0] }, lam30: { di: [true, false, false, true], coils: [true, false, false, false, false] }, lam21: { di: [true], coils: [false, false], ir: [235, 612], hr: [260, 800] } }[k] || {};
+  const mk = it => ({ table: it.table, name: it.name, icon: it.icon, format: it.format, value: (vals[it.table] || [])[it.addr] ?? (FORMATS[it.format].bits ? false : 0) });
+  ED.title = T.label.split(' · ')[0]; ED.left = T.left; ED.right = T.right; ED.inputs = T.inputs.map(mk); ED.outputs = T.outputs.map(mk);
+  edChanged();
+}
+function edFromRegisters(regs) {
+  const map = [['discreteInput', 'di', true], ['inputRegister', 'ir', true], ['coils', 'coils', false], ['holdingRegister', 'hr', false]];
+  ED.inputs = []; ED.outputs = [];
+  for (const [key, t, isIn] of map) {
+    const tbl = regs[key] || {}; const ks = Object.keys(tbl).map(Number).sort((a, b) => a - b); const n = ks.length ? Math.max(...ks) : 0;
+    for (let a = 1; a <= n; a++) { const d = DEF_ITEM[t]; (isIn ? ED.inputs : ED.outputs).push({ table: t, name: `${d.name} ${a - 1}`, icon: d.icon, format: d.format, value: tbl[String(a)] ?? d.value }); }
+  }
+  ED.title = 'server.json actual'; edChanged();
+}
+function edDoc() {
+  edAddresses();
+  const mk = it => ({ table: it.table, name: it.name, icon: it.icon, format: it.format, value: it.value });
+  return { server: { logLevel: ED.logLevel, initializeUndefinedRegisters: ED.init }, tablero: { title: ED.title, left: ED.left, right: ED.right, inputs: ED.inputs.map(mk), outputs: ED.outputs.map(mk) } };
+}
+async function edSave(btn, apply) {
+  busy(btn, true);
+  try {
+    const j = await api('/api/modbus-server', edDoc(), 'PUT');
+    ED.dirty = false; $('#ed-status').textContent = 'guardado en modbus/server.json'; toast('server.json guardado');
+    if (apply) {
+      $('#ed-status').textContent = 'reiniciando modbus-sim…';
+      const r = await api('/api/modbus-server/apply', {});
+      $('#ed-status').textContent = `modbus-sim ${r.status} · tablero aplicado`; toast('modbus-sim reiniciado con el nuevo tablero');
+      S.vals = { di: {}, coils: {}, ir: {}, hr: {} }; S.items.forEach(it => { it.shown = undefined; refreshCard(it); });
+      if (S.session.connected && S.session.host === '172.28.0.30') { await new Promise(r => setTimeout(r, 1200)); await connectTo({ host: '172.28.0.30', port: 5020, unit: S.session.unit }); }
+      else { S.session = { connected: false }; setChipSession(); }
+    }
+    jsonRefresh();
+  } catch (e) { $('#ed-status').textContent = e.message; toast(e.message, true); }
+  finally { busy(btn, false); }
+}
+async function edInit() {
+  $$('[data-preset]').forEach(b => b.onclick = () => edLoadPreset(b.dataset.preset));
+  $$('[data-add]').forEach(b => b.onclick = () => { const t = b.dataset.add; const d = DEF_ITEM[t]; (t === 'di' || t === 'ir' ? ED.inputs : ED.outputs).push({ table: t, ...d }); edChanged(); });
+  $('#btn-ed-empty').onclick = () => { ED.inputs = []; ED.outputs = []; ED.title = 'Mi tablero'; edChanged(); };
+  $('#btn-ed-fromjson').onclick = async () => { const j = await api('/api/modbus-server'); if (j.registers) edFromRegisters(j.registers); };
+  $('#ed-title').oninput = e => { ED.title = e.target.value; edChanged(false); };
+  $('#ed-left').oninput = e => { ED.left = e.target.value; edChanged(false); };
+  $('#ed-right').oninput = e => { ED.right = e.target.value; edChanged(false); };
+  $('#ed-log').onchange = e => { ED.logLevel = e.target.value; ED.dirty = true; $('#ed-status').textContent = 'cambios sin guardar'; };
+  $('#ed-init').onchange = e => { ED.init = e.target.checked; edChanged(false); };
+  $('#btn-ed-save').onclick = e => edSave(e.target, false);
+  $('#btn-ed-apply').onclick = e => edSave(e.target, true);
+  try {
+    const j = await api('/api/modbus-server');
+    if (j.tablero && (j.tablero.inputs.length || j.tablero.outputs.length)) {
+      Object.assign(ED, { title: j.tablero.title, left: j.tablero.left, right: j.tablero.right, inputs: j.tablero.inputs, outputs: j.tablero.outputs });
+    } else if (j.registers) { edFromRegisters(j.registers); ED.title = 'server.json actual'; }
+    if (j.server) { ED.logLevel = (j.server.logging && j.server.logging.logLevel) || 'DEBUG'; ED.init = j.registers ? j.registers.initializeUndefinedRegisters !== false : true; }
+    if (!j.docker) $('#btn-ed-apply').title = 'Sin socket de Docker: guarde y ejecute docker compose restart modbus-sim';
+    TABLEROS.custom = customTablero(); tableroOptions(); edRender(); ED.dirty = false; $('#ed-status').textContent = j.writable ? 'listo' : 'carpeta modbus/ solo lectura';
+  } catch (e) { $('#ed-status').textContent = e.message; }
+}
+
+/* ------------------------------------------------------------------ escenario (lámina 18) */
+let escTimer = null;
+function escUpdate() {
+  const svg = $('#esc'); if (!svg) return;
+  const s = S.session || {}; const toSim = s.connected && s.host === '172.28.0.30'; const toPlc = s.connected && s.host === '172.28.0.10';
+  const set = (id, cls, on) => { const e = $('#' + id); if (e) e.classList.toggle(cls, !!on); };
+  set('l-ex-sim', 'on', true); set('l-ex-plc', 'on', true); set('l-plc-sim', 'on', true);
+  set('l-ex-sim', 'live', toSim); set('t-ex-sim', 'live', toSim); set('esc-sim', 'live', toSim);
+  set('l-ex-plc', 'live', toPlc); set('t-ex-plc', 'live', toPlc); set('esc-plc', 'live', toPlc);
+  const running = S.plcStatus === 'Running';
+  set('l-plc-sim', 'live', running); set('t-plc-sim', 'live', running); set('esc-plc', 'off', S.plcStatus === 'Stopped' || S.plcStatus === 'sin acceso');
+  set('l-cap', 'live', S.capRunning); set('esc-cap', 'live', S.capRunning);
+  set('l-browser', 'live', true);
+  $('#esc-meta').textContent = `${s.connected ? 'sesión → ' + s.host + ':' + s.port : 'sin sesión'} · PLC ${S.plcStatus || '?'}${S.capRunning ? ' · capturando' : ''}`;
+  if (running && !escTimer) escTimer = setInterval(() => escDot('l-plc-sim', 900), 1000);
+  if (!running && escTimer) { clearInterval(escTimer); escTimer = null; }
+}
+function escDot(pathId, dur, back) {
+  const p = $('#' + pathId); const fx = $('#esc-fx'); if (!p || !fx) return;
+  const c = el('circle', { r: 7, class: 'dot' });
+  const am = el('animateMotion', { dur: `${dur || 600}ms`, begin: 'indefinite', fill: 'freeze', path: p.getAttribute('d'), keyPoints: back ? '1;0' : '0;1', keyTimes: '0;1', calcMode: 'linear' });
+  c.appendChild(am); fx.appendChild(c); am.beginElement(); setTimeout(() => c.remove(), (dur || 600) + 80);
+}
+function escPacket() {
+  const s = S.session || {}; const id = s.host === '172.28.0.10' ? 'l-ex-plc' : 'l-ex-sim';
+  escDot(id, 500); setTimeout(() => escDot(id, 500, true), 520); escDot('l-browser', 400);
+}
+function escInit() {
+  const key = 'esc-hidden'; let hidden = false;
+  try { hidden = localStorage.getItem(key) === '1'; } catch (e) { }
+  const apply = () => { $('#esc').classList.toggle('hidden', hidden); $('#btn-esc').textContent = hidden ? 'Mostrar' : 'Ocultar'; };
+  $('#btn-esc').onclick = () => { hidden = !hidden; try { localStorage.setItem(key, hidden ? '1' : '0'); } catch (e) { } apply(); };
+  apply(); escUpdate();
+}

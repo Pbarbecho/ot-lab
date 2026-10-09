@@ -3,20 +3,43 @@
     "listenerAddress": "0.0.0.0",
     "listenerPort": 5020,
     "protocol": "TCP",
-    "tlsParams": { "privateKey": null, "certificate": null },
+    "tlsParams": {
+      "privateKey": null,
+      "certificate": null
+    },
     "logging": {
       "format": "%(asctime)-15s %(levelname)-8s %(message)s",
       "logLevel": "DEBUG"
     }
   },
-  "persistence": { "enabled": false, "file": "/data/modbus_registers.json", "saveInterval": 30 },
-  "metrics": { "enabled": false, "address": "0.0.0.0", "port": 9090, "path": "/metrics" },
+  "persistence": {
+    "enabled": false,
+    "file": "/data/modbus_registers.json",
+    "saveInterval": 30
+  },
+  "metrics": {
+    "enabled": false,
+    "address": "0.0.0.0",
+    "port": 9090,
+    "path": "/metrics"
+  },
   "registers": {
-    "description": "Taller 5, lamina 21: PLC del ejemplo. Clave JSON = direccion pymodbus + 1 (oitc/modbus-server v2.3). DI0 pulsador; coils 0,1 LED y ventilador; IR0 temp x10, IR1 CO2 ppm; HR0 consigna x10, HR1 umbral CO2",
+    "description": "Lámina 31 (editor web, 2026-10-09 12:22). Clave JSON = direccion pymodbus + 1. IR Temperatura, IR Humedad, IR CO₂, IR Presión, HR Consigna T, HR Consigna HR, HR Umbral CO₂, HR Ventilador %, HR Modo",
     "initializeUndefinedRegisters": true,
-    "discreteInput":   { "1": true },
-    "coils":           { "1": false, "2": false },
-    "inputRegister":   { "1": 235, "2": 612 },
-    "holdingRegister": { "1": 260, "2": 800 }
+    "discreteInput": {},
+    "coils": {},
+    "inputRegister": {
+      "1": 235,
+      "2": 480,
+      "3": 612,
+      "4": 1013
+    },
+    "holdingRegister": {
+      "1": 260,
+      "2": 500,
+      "3": 800,
+      "4": 40,
+      "5": 0
+    }
   }
 }

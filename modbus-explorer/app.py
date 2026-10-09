@@ -6,6 +6,8 @@ las tramas reales (MBAP + PDU) que viajaron por la red, capturadas con trace_pac
 from __future__ import annotations
 
 import asyncio
+import http.client
+import socket
 import json
 import os
 import shutil
@@ -28,7 +30,10 @@ from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
 STATIC = Path(__file__).parent / "static"
-SERVER_JSON = Path(os.environ.get("SERVER_JSON", "/app/server.json"))
+SERVER_JSON = Path(os.environ.get("SERVER_JSON", "/app/modbus/server.json"))
+TABLERO_JSON = SERVER_JSON.with_name("tablero.json")
+DOCKER_SOCK = os.environ.get("DOCKER_SOCK", "/var/run/docker.sock")
+MODBUS_SIM = os.environ.get("MODBUS_SIM_CONTAINER", "modbus-sim")
 CAPTURES = Path(os.environ.get("CAPTURES_DIR", "/app/captures"))
 CAPTURES.mkdir(parents=True, exist_ok=True)
 
@@ -279,6 +284,130 @@ def serverjson() -> dict[str, Any]:
                 "server": data.get("server", {}), "mtime": datetime.fromtimestamp(SERVER_JSON.stat().st_mtime).isoformat(timespec="seconds")}
     except json.JSONDecodeError as e:
         return {"available": True, "path": str(SERVER_JSON), "error": f"JSON roto: {e}"}
+
+
+
+# ---------------------------------------------------------------- Modbus server · editor gráfico de server.json
+TABLE_KEYS = {"di": "discreteInput", "coils": "coils", "ir": "inputRegister", "hr": "holdingRegister"}
+
+
+class TableroItem(BaseModel):
+    table: str = Field(pattern="^(di|coils|ir|hr)$")
+    name: str = "Elemento"
+    icon: str = "knob"
+    format: str = "int"
+    value: Any = 0
+
+
+class ServerOpts(BaseModel):
+    logLevel: str = Field(default="DEBUG", pattern="^(DEBUG|INFO|WARNING|ERROR)$")
+    initializeUndefinedRegisters: bool = True
+
+
+class TableroDoc(BaseModel):
+    title: str = "Mi tablero"
+    left: str = "CAMPO · ENTRADAS"
+    right: str = "SALIDAS Y PARÁMETROS"
+    inputs: list[TableroItem] = []
+    outputs: list[TableroItem] = []
+
+
+class ModbusServerDoc(BaseModel):
+    server: ServerOpts = ServerOpts()
+    tablero: TableroDoc = TableroDoc()
+
+
+def docker_sock_ok() -> bool:
+    return Path(DOCKER_SOCK).exists()
+
+
+class _UnixConn(http.client.HTTPConnection):
+    def __init__(self, path: str) -> None:
+        super().__init__("localhost"); self._path = path
+
+    def connect(self) -> None:
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); self.sock.settimeout(20); self.sock.connect(self._path)
+
+
+def docker_api(method: str, path: str) -> tuple[int, str]:
+    c = _UnixConn(DOCKER_SOCK)
+    try:
+        c.request(method, path); r = c.getresponse(); return r.status, r.read().decode(errors="replace")
+    finally:
+        c.close()
+
+
+def registers_from_tablero(t: TableroDoc) -> dict[str, Any]:
+    regs: dict[str, dict[str, Any]] = {v: {} for v in TABLE_KEYS.values()}
+    counters = {k: 0 for k in TABLE_KEYS}
+    for it in [*t.inputs, *t.outputs]:
+        a = counters[it.table]; counters[it.table] += 1
+        if it.table in ("di", "coils"):
+            v = it.value if isinstance(it.value, bool) else str(it.value).strip().lower() in ("1", "true", "t", "on")
+        else:
+            v = max(0, min(65535, int(float(it.value or 0))))
+        regs[TABLE_KEYS[it.table]][str(a + 1)] = v
+    return regs
+
+
+@app.get("/api/modbus-server")
+def modbus_server_get() -> dict[str, Any]:
+    out: dict[str, Any] = {"path": str(SERVER_JSON), "writable": os.access(SERVER_JSON.parent, os.W_OK), "docker": docker_sock_ok(),
+                           "container": MODBUS_SIM, "server": None, "registers": None, "tablero": None, "error": None}
+    if SERVER_JSON.exists():
+        try:
+            data = json.loads(SERVER_JSON.read_text())
+            out["server"] = data.get("server", {}); out["registers"] = data.get("registers", {})
+            out["mtime"] = datetime.fromtimestamp(SERVER_JSON.stat().st_mtime).isoformat(timespec="seconds")
+        except json.JSONDecodeError as e:
+            out["error"] = f"server.json roto: {e}"
+    if TABLERO_JSON.exists():
+        try:
+            out["tablero"] = json.loads(TABLERO_JSON.read_text())
+        except json.JSONDecodeError:
+            out["tablero"] = None
+    return out
+
+
+@app.put("/api/modbus-server")
+def modbus_server_put(doc: ModbusServerDoc) -> dict[str, Any]:
+    if not os.access(SERVER_JSON.parent, os.W_OK):
+        raise HTTPException(500, f"{SERVER_JSON.parent} no es escribible: monte ./modbus con permiso de escritura.")
+    data: dict[str, Any] = {}
+    if SERVER_JSON.exists():
+        try:
+            data = json.loads(SERVER_JSON.read_text())
+        except json.JSONDecodeError:
+            data = {}
+    srv = data.setdefault("server", {"listenerAddress": "0.0.0.0", "listenerPort": 5020, "protocol": "TCP",
+                                     "tlsParams": {"privateKey": None, "certificate": None}})
+    srv.setdefault("logging", {"format": "%(asctime)-15s %(levelname)-8s %(message)s"})["logLevel"] = doc.server.logLevel
+    data.setdefault("persistence", {"enabled": False, "file": "/data/modbus_registers.json", "saveInterval": 30})
+    data.setdefault("metrics", {"enabled": False, "address": "0.0.0.0", "port": 9090, "path": "/metrics"})
+    regs = registers_from_tablero(doc.tablero)
+    names = ", ".join(f"{it.table.upper()} {it.name}" for it in [*doc.tablero.inputs, *doc.tablero.outputs])
+    data["registers"] = {"description": f"{doc.tablero.title} (editor web, {datetime.now():%Y-%m-%d %H:%M}). Clave JSON = direccion pymodbus + 1. {names}",
+                         "initializeUndefinedRegisters": doc.server.initializeUndefinedRegisters, **regs}
+    SERVER_JSON.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    TABLERO_JSON.write_text(json.dumps(doc.tablero.model_dump(), indent=2, ensure_ascii=False) + "\n")
+    return {"ok": True, "registers": data["registers"], "json": json.dumps(data["registers"], indent=2, ensure_ascii=False)}
+
+
+@app.post("/api/modbus-server/apply")
+def modbus_server_apply() -> dict[str, Any]:
+    if not docker_sock_ok():
+        raise HTTPException(501, f"No hay socket de Docker montado: ejecute en la terminal  docker compose restart {MODBUS_SIM}")
+    try:
+        st, body = docker_api("POST", f"/containers/{MODBUS_SIM}/restart?t=3")
+    except OSError as e:
+        raise HTTPException(502, f"No se pudo hablar con Docker: {e}")
+    if st not in (204, 200):
+        raise HTTPException(502, f"Docker respondió {st}: {body[:200]}")
+    time.sleep(2.5)
+    st2, insp = docker_api("GET", f"/containers/{MODBUS_SIM}/json")
+    status = json.loads(insp).get("State", {}).get("Status", "?") if st2 == 200 else "?"
+    SESSION.close()
+    return {"ok": True, "status": status, "note": "La sesión pymodbus se cerró: vuelva a Conectar."}
 
 
 # ---------------------------------------------------------------- captura (tcpdump dentro del contenedor)

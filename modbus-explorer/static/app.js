@@ -164,6 +164,12 @@ function icon(kind, x, y) {
   }
   return g;
 }
+function extrude(x, y, w, h, d, cls) {   // caras lateral y inferior: el bloque «sale» del plano hacia abajo-derecha
+  const g = el('g', { class: 'ext ' + (cls || '') });
+  g.appendChild(el('polygon', { class: 'side', points: `${x + w},${y + 6} ${x + w + d},${y + 6 + d} ${x + w + d},${y + h + d - 6} ${x + w},${y + h}` }));
+  g.appendChild(el('polygon', { class: 'bottom', points: `${x + 6},${y + h} ${x + w},${y + h} ${x + w + d},${y + h + d - 6} ${x + 6 + d},${y + h + d}` }));
+  return g;
+}
 function pathStr(x1, y1, x2, y2) { const k = x2 > x1 ? 45 : -45; return `M${x1} ${y1} C ${x1 + k} ${y1}, ${x2 - k} ${y2}, ${x2} ${y2}`; }
 function buildTablero() {
   const T = TABLEROS[S.tablero];
@@ -171,6 +177,7 @@ function buildTablero() {
   st.innerHTML = ''; cards.innerHTML = ''; $('#dg-fx').innerHTML = '';
   st.appendChild(el('text', { class: 'ro', x: 0, y: 30 }, T.left));
   st.appendChild(el('text', { class: 'ro', x: 870, y: 30, 'text-anchor': 'end' }, T.right));
+  st.appendChild(extrude(315, 44, 240, 452, 16, 'plc3d'));
   st.appendChild(el('rect', { class: 'plc', x: 315, y: 44, width: 240, height: 452, rx: 10 }));
   st.appendChild(el('text', { class: 'tt', x: 435, y: 80, 'text-anchor': 'middle' }, 'PLC · esclavo'));
   st.appendChild(el('text', { class: 'ts', x: 435, y: 103, 'text-anchor': 'middle', id: 'dg-plc-sub' }, '— · unit —'));
@@ -179,6 +186,7 @@ function buildTablero() {
   const used = new Set([...T.inputs, ...T.outputs].map(i => i.table));
   for (const [k, inf] of Object.entries(TABLE_INFO)) {
     const off = used.has(k) ? '' : ' off';
+    if (!off) st.appendChild(extrude(327, inf.y - 31, 216, 62, 7, 'row3d'));
     st.appendChild(el('rect', { class: 'row' + off, id: 'row-' + k, x: 327, y: inf.y - 31, width: 216, height: 62, rx: 6 }));
     st.appendChild(el('text', { class: 'rt' + off, x: 339, y: inf.y - 5 }, inf.name));
     st.appendChild(el('text', { class: 'rs', x: 339, y: inf.y + 19 }, inf.sub));
@@ -189,8 +197,9 @@ function buildTablero() {
   const slotsOut = custom ? Math.max(T.outputs.length, 4) : T.outputs.length;
   const nmax = Math.max(slotsIn, slotsOut, 4);
   const H = nmax > 5 ? 40 + nmax * 92 + 8 : 500;
-  $('#dg').setAttribute('viewBox', `0 0 870 ${H}`);
+  $('#dg').setAttribute('viewBox', `-6 -4 896 ${H + 24}`);   // margen para la extrusión y la sombra
   st.querySelector('.plc').setAttribute('height', H - 48);
+  const pe = st.querySelector('.ext.plc3d'); if (pe) { pe.remove(); st.insertBefore(extrude(315, 44, 240, H - 48, 16, 'plc3d'), st.querySelector('.plc')); }
   const place = (list, x, isOut) => {
     const pitch = (isOut ? slotsOut : slotsIn) > 4 ? 92 : 112;
     list.forEach((it, i) => {
@@ -205,6 +214,7 @@ function buildTablero() {
       const lx = isOut ? 640 - 12 : 230 + 12, ly = cy - 12;
       st.appendChild(el('text', { class: 'acc' + (rw ? ' w' : ''), x: lx, y: ly, 'text-anchor': isOut ? 'end' : 'start' }, rw ? 'R/W' : 'R'));
       const g = el('g', { class: 'item', id: `it-${it.table}-${it.addr}` });
+      g.appendChild(extrude(x, y, 230, 82, 10, 'card3d'));
       g.appendChild(el('rect', { class: 'card', x, y, width: 230, height: 82, rx: 8 }));
       g.appendChild(icon(it.icon, x + 8, y));
       g.appendChild(el('text', { class: 'nm2', x: x + 66, y: y + 34 }, it.name));

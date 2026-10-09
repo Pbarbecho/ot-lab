@@ -22,6 +22,7 @@
 #    (\\wsl$\Ubuntu\home\<usuario>\ot-lab) y no en C:\Users\..., por rendimiento.
 #  - Captura de tráfico: no existe interfaz br-xxxx visible; usar netshoot
 #    (docker run --rm --net container:<svc> nicolaka/netshoot tshark -i eth0 ...).
+#  - modbus-explorer (Taller 5) publica en localhost:8500; sus capturas .pcap van a .\captures.
 #  - El host alcanza los servicios solo por localhost:<puerto publicado>;
 #    las IPs 172.28.0.x solo funcionan entre contenedores.
 
@@ -50,6 +51,25 @@ services:
     ports: ["5020:5020"]
     networks:
       ot-lab: { ipv4_address: 172.28.0.30 }
+
+  modbus-explorer:
+    build: ./modbus-explorer
+    container_name: modbus-explorer
+    restart: unless-stopped
+    # Taller 5 · prácticas 1a y 1b: pymodbus desde el navegador, tablero animado (lámina 31),
+    # tramas MBAP+PDU, captura tcpdump → Wireshark, autoprogramación y Monitoring de OpenPLC.
+    environment:
+      TZ: "America/Guayaquil"
+      OPENPLC_URL: "http://172.28.0.10:8080"
+      OPENPLC_USER: "openplc"
+      OPENPLC_PASS: "openplc"
+    volumes:
+      - ./modbus/server.json:/app/server.json:ro   # solo lectura: la web lo muestra, no lo edita
+      - ./captures:/app/captures                   # las capturas .pcap quedan en la carpeta compartida
+    ports: ["8500:8500"]
+    depends_on: [modbus-sim]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.40 }
 
   openplc:
     image: tuttas/openplc_v3

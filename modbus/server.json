@@ -6,17 +6,17 @@
     "tlsParams": { "privateKey": null, "certificate": null },
     "logging": {
       "format": "%(asctime)-15s %(levelname)-8s %(message)s",
-      "logLevel": "INFO"
+      "logLevel": "DEBUG"
     }
   },
   "persistence": { "enabled": false, "file": "/data/modbus_registers.json", "saveInterval": 30 },
   "metrics": { "enabled": false, "address": "0.0.0.0", "port": 9090, "path": "/metrics" },
   "registers": {
-    "description": "Claves = offset de protocolo (0-based). HR 0..2 -> [1234, 25, 72]; IR 0 -> 999",
+    "description": "Taller 5, lamina 21: PLC del ejemplo. Clave JSON = direccion pymodbus + 1 (oitc/modbus-server v2.3). DI0 pulsador; coils 0,1 LED y ventilador; IR0 temp x10, IR1 CO2 ppm; HR0 consigna x10, HR1 umbral CO2",
     "initializeUndefinedRegisters": true,
-    "discreteInput":   { "0": true, "1": false },
-    "coils":           { "0": false, "1": true },
-    "holdingRegister": { "0": 1234, "1": 25, "2": 72 },
-    "inputRegister":   { "0": 999 }
+    "discreteInput":   { "1": true },
+    "coils":           { "1": false, "2": false },
+    "inputRegister":   { "1": 235, "2": 612 },
+    "holdingRegister": { "1": 260, "2": 800 }
   }
 }

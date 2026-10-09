@@ -21,3 +21,7 @@ docs/latex/capitulos/*.aux
 
 # macOS
 .DS_Store
+
+# Entorno local / datos de contenedores auxiliares
+.vscode/
+scripts/uaexpert/

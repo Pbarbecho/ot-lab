@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explorador Modbus · ot-lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700;800&family=Fira+Code:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="brandbar"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div>
+<header>
+  <img class="logo" src="marca/logo_ucuenca_blanco.png" alt="Universidad de Cuenca">
+  <div class="htxt">
+    <div class="kicker">Informática Industrial · Taller 5 · Bloque 1 · Modbus TCP · prácticas 1a y 1b</div>
+    <h1>Explorador Modbus</h1>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chip-session">sin sesión</span>
+    <span class="chip" id="chip-plc">OpenPLC ?</span>
+    <span class="chip" id="chip-capture">sin captura</span>
+  </div>
+  <img class="banda" src="marca/banda_modulos_oscuro.png" alt="">
+</header>
+
+<main>
+<section class="left">
+  <div class="panel">
+    <div class="lbl row">
+      <span>Tablero ·</span>
+      <select id="tablero"></select>
+      <span class="sp"></span>
+      <span id="dg-target" class="mono gr">sin conexión</span>
+    </div>
+    <svg id="dg" viewBox="0 0 870 500" class="dg">
+      <defs>
+        <marker id="cra" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#002856"/></marker>
+        <marker id="crr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#A51008"/></marker>
+      </defs>
+      <g id="dg-static"></g>
+      <g id="dg-cards"></g>
+      <g id="dg-fx"></g>
+    </svg>
+    <div class="legend">
+      <span><i class="sw azul"></i>flecha azul = lectura · los datos viajan en la <b>Response</b> (FC 01–04)</span>
+      <span><i class="sw rojo"></i>flecha roja = escritura · los datos viajan en la <b>Query</b> (FC 05 · 06 · 15 · 16)</span>
+      <span class="gr">clave JSON = dirección pymodbus + 1 · SCADA 40001 = dirección 0</span>
+    </div>
+  </div>
+
+  <div class="panel" id="frames-panel">
+    <div class="lbl row"><span>Última operación · tramas reales (MBAP + PDU)</span><span class="sp"></span><span id="op-meta" class="mono gr"></span></div>
+    <pre class="code term" id="pyline">&gt;&gt;&gt; <span class="c"># conecte y ejecute una operación: aquí verá la línea pymodbus equivalente</span></pre>
+    <div id="op-banner" class="banner hidden"></div>
+    <div class="frames">
+      <div class="frame" id="frame-query"><h4>Query · maestro → esclavo</h4><div class="fbody gr">—</div></div>
+      <div class="frame" id="frame-response"><h4>Response · esclavo → maestro</h4><div class="fbody gr">—</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="lbl row"><span>Tabla a entregar · una fila por petición</span><span class="sp"></span>
+      <button class="btn mini" id="btn-csv">Exportar CSV</button><button class="btn mini gris" id="btn-clear">Vaciar</button></div>
+    <div class="tscroll"><table class="tabla" id="log">
+      <thead><tr><th>#</th><th>Hora</th><th>FC</th><th>Función</th><th>Dir</th><th>Datos en</th><th>PDU Query</th><th>PDU Response</th><th>Valor</th><th>ms</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</section>
+
+<aside class="right">
+  <nav class="tabs">
+    <button data-tab="t1a" class="on">1a · pymodbus</button>
+    <button data-tab="t1b">1b · OpenPLC</button>
+    <button data-tab="tws">Wireshark</button>
+    <button data-tab="tjson">server.json</button>
+  </nav>
+
+  <div class="tab on" id="t1a">
+    <div class="box">
+      <h3>1 · Sesión · <code>ModbusTcpClient</code></h3>
+      <div class="frow">
+        <select id="target"></select>
+      </div>
+      <div class="frow custom hidden" id="custom-row">
+        <input id="host" placeholder="host" value="172.28.0.30"><input id="port" type="number" placeholder="puerto" value="5020" class="w90">
+      </div>
+      <div class="frow">
+        <label>Unit ID <input id="unit" type="number" value="1" min="0" max="255" class="w70"></label>
+        <span class="sp"></span>
+        <button class="btn" id="btn-connect">Conectar</button>
+        <button class="btn gris" id="btn-disconnect">Cerrar</button>
+      </div>
+      <p class="note" id="target-note"></p>
+    </div>
+
+    <div class="box">
+      <h3>2 · Leer · FC 01 · 02 · 03 · 04</h3>
+      <div class="frow wrap fcs" id="read-fc">
+        <label><input type="radio" name="rt" value="coils"> <b>01</b> coils</label>
+        <label><input type="radio" name="rt" value="di"> <b>02</b> discrete inputs</label>
+        <label><input type="radio" name="rt" value="hr"> <b>03</b> holding</label>
+        <label><input type="radio" name="rt" value="ir" checked> <b>04</b> input reg.</label>
+      </div>
+      <div class="frow">
+        <label>dir <input id="r-addr" type="number" value="0" min="0" class="w80"></label>
+        <label>count <input id="r-count" type="number" value="4" min="1" max="125" class="w80"></label>
+        <span class="sp"></span><button class="btn" id="btn-read">Leer</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>3 · Escribir · FC 05 · 06 · 15 · 16</h3>
+      <div class="frow wrap fcs" id="write-fc">
+        <label><input type="radio" name="wt" value="coil"> <b>05</b> un coil</label>
+        <label><input type="radio" name="wt" value="register" checked> <b>06</b> un registro</label>
+        <label><input type="radio" name="wt" value="coils"> <b>15</b> varios coils</label>
+        <label><input type="radio" name="wt" value="registers"> <b>16</b> varios registros</label>
+      </div>
+      <div class="frow">
+        <label>dir <input id="w-addr" type="number" value="3" min="0" class="w80"></label>
+        <label>valor(es) <input id="w-val" value="75" class="w190" placeholder="75 · T,F,T · 240,550"></label>
+        <span class="sp"></span><button class="btn rojo" id="btn-write">Escribir</button>
+      </div>
+      <p class="note">Bits: <code>T</code>/<code>F</code>, <code>1</code>/<code>0</code>. Varios valores separados por coma. Pruebe <code>70000</code> o <code>-5</code> y mire quién se queja.</p>
+    </div>
+
+    <div class="box">
+      <h3>4 · Reto de la lámina · pasos</h3>
+      <div class="steps" id="steps"></div>
+    </div>
+
+    <div class="box">
+      <h3>5 · Sondeo continuo · como el runtime de OpenPLC</h3>
+      <div class="frow">
+        <label>cada <select id="poll-ms"><option value="100">100 ms</option><option value="250">250 ms</option><option value="500" selected>500 ms</option><option value="1000">1 s</option><option value="2000">2 s</option></select></label>
+        <span class="sp"></span>
+        <button class="btn" id="btn-poll">Iniciar sondeo</button>
+      </div>
+      <p class="note">Lee en bloque todas las tablas del tablero (una Query por tabla, como un ciclo de OpenPLC). Con la captura activa verá el periodo en Wireshark.</p>
+    </div>
+  </div>
+
+  <div class="tab" id="t1b">
+    <div class="box">
+      <h3>OpenPLC · estado del runtime</h3>
+      <div class="frow">
+        <span id="plc-status" class="mono gr">consultando…</span><span class="sp"></span>
+        <button class="btn mini" id="btn-plc-refresh">Actualizar</button>
+        <button class="btn mini" id="btn-plc-start">Start PLC</button>
+        <button class="btn mini gris" id="btn-plc-stop">Stop PLC</button>
+      </div>
+      <div class="frow">
+        <a class="btn" href="http://localhost:8080" target="_blank" rel="noopener">Panel OpenPLC ↗</a>
+        <a class="btn rojo" id="btn-plc-monitor-ext" href="http://localhost:8080/monitoring" target="_blank" rel="noopener">Monitoring de OpenPLC ↗</a>
+      </div>
+      <p class="note">Usuario <code>openplc</code> / <code>openplc</code>. Esta web habla con el panel por dentro de la red Docker (<code>172.28.0.10:8080</code>) y hace por usted los clics de las láminas 33–35.</p>
+    </div>
+
+    <div class="box">
+      <h3>Autoprogramación · subir, compilar y arrancar el programa</h3>
+      <div class="frow">
+        <label>Plantilla <select id="plc-prog"></select></label>
+        <label>Nombre <input id="plc-name" value="monito" class="w120"></label>
+      </div>
+      <textarea id="plc-st" class="st" spellcheck="false" rows="14"></textarea>
+      <div class="frow">
+        <button class="btn rojo" id="btn-plc-setup">Preparar todo (1b)</button>
+        <button class="btn" id="btn-plc-program">Solo programar</button>
+        <label class="chk"><input type="checkbox" id="plc-autostart" checked> Start PLC al terminar</label>
+      </div>
+      <p class="note"><b>Preparar todo</b> = Modbus Server en 502 + Slave Device <code>modbus-sim</code> (Start 0 · DI 2 · coils 2 · IR 2 · HR-R 2 · HR-W 0) + Upload del programa + compilación + Start PLC. <b>Solo programar</b> = Upload + compilar (+ Start). La plantilla SFC es Grafcet textual: etapas <code>STEP</code> y <code>TRANSITION</code>, acciones con cualificador <code>N</code>.</p>
+      <pre class="code term small hidden" id="plc-log"></pre>
+    </div>
+
+    <div class="box">
+      <h3>Slave Devices · el PLC como maestro del simulador</h3>
+      <table class="tabla small" id="plc-devices"><thead><tr><th>Nombre</th><th>Tipo</th><th>DI</th><th>Coils</th><th>IR</th><th>HR</th><th></th></tr></thead><tbody></tbody></table>
+      <details class="dev">
+        <summary>Añadir / sustituir esclavo con otros tamaños (tableros de las láminas 30–31)</summary>
+        <div class="frow wrap">
+          <label>Nombre <input id="dv-name" value="modbus-sim" class="w120"></label>
+          <label>IP <input id="dv-ip" value="172.28.0.30" class="w120"></label>
+          <label>Puerto <input id="dv-port" type="number" value="5020" class="w80"></label>
+          <label>ID <input id="dv-id" type="number" value="1" class="w60"></label>
+        </div>
+        <div class="frow wrap sizes">
+          <label>DI <input id="dv-di" type="number" value="2" class="w60"></label>
+          <label>Coils <input id="dv-co" type="number" value="2" class="w60"></label>
+          <label>IR <input id="dv-ir" type="number" value="2" class="w60"></label>
+          <label>HR-Read <input id="dv-hr" type="number" value="2" class="w60"></label>
+          <label>HR-Write <input id="dv-hw" type="number" value="0" class="w60"></label>
+          <span class="sp"></span><button class="btn mini" id="btn-dv-add">Guardar esclavo</button>
+        </div>
+        <p class="note">Start Address siempre 0 (lámina 34). HR-Write &gt; 0 sin lógica que asigne <code>%QW100</code> escribe ceros cada 100 ms y pisa la consigna.</p>
+      </details>
+    </div>
+
+    <div class="box">
+      <h3>Monitoring · dentro de esta web</h3>
+      <div class="frow">
+        <button class="btn" id="btn-mon-toggle">▶ Iniciar monitoreo</button>
+        <label>cada <select id="mon-ms"><option value="500">0,5 s</option><option value="1000" selected>1 s</option><option value="2000">2 s</option></select></label>
+        <span class="sp"></span><span id="mon-meta" class="mono gr"></span>
+      </div>
+      <table class="tabla small" id="mon-table"><thead><tr><th>Variable</th><th>Tipo</th><th>Dirección</th><th>Valor</th></tr></thead><tbody></tbody></table>
+      <p class="note">Mismos datos que la página Monitoring de OpenPLC (<code>monitor-update</code>), leídos por esta web y pintados aquí; solo aparecen las variables con <code>AT %…</code> del programa cargado y con el PLC en Running.</p>
+      <details class="dev"><summary>Incrustar la página original de OpenPLC (iframe)</summary>
+        <p class="note">Funciona en Chrome/Edge/Firefox tras iniciar sesión dentro del marco. Safari bloquea la cookie de un sitio incrustado desde otro puerto y mostrará siempre el login: use el botón «Monitoring de OpenPLC ↗».</p>
+        <button class="btn mini" id="btn-iframe">Cargar iframe</button>
+        <div id="iframe-wrap"></div>
+      </details>
+    </div>
+
+    <div class="box">
+      <h3>Leer el esclavo interno de OpenPLC desde pymodbus</h3>
+      <table class="tabla small">
+        <tr><th>Variable</th><th>Tabla · FC</th><th>Dirección pymodbus</th></tr>
+        <tr><td>%IX100.0 · .1</td><td>DI · FC 02</td><td class="mono">800, 801 (8·100 + bit)</td></tr>
+        <tr><td>%QX100.0 · .1</td><td>Coils · FC 01</td><td class="mono">800, 801</td></tr>
+        <tr><td>%IW100 … %IW103</td><td>IR · FC 04</td><td class="mono">100 … 103</td></tr>
+        <tr><td>%QW100 …</td><td>HR · FC 03 / 06 / 16</td><td class="mono">100 …</td></tr>
+      </table>
+      <div class="steps" id="steps-1b"></div>
+      <p class="note">Excepción 02 = Modbus Server deshabilitado o PLC parado. Ceros en %IW100… = Slave Device sin guardar o PLC sin reiniciar.</p>
+    </div>
+  </div>
+
+  <div class="tab" id="tws">
+    <div class="box">
+      <h3>Captura dentro del laboratorio · tcpdump en <code>modbus-explorer</code></h3>
+      <div class="frow">
+        <button class="btn" id="btn-cap-start">● Iniciar captura</button>
+        <button class="btn gris" id="btn-cap-stop">■ Detener</button>
+        <span class="sp"></span><span id="cap-status" class="mono gr">—</span>
+      </div>
+      <div id="cap-ready" class="hidden">
+        <a class="btn rojo big" id="btn-wireshark" href="#" download>Abrir en Wireshark ↗</a>
+        <p class="note">Se descarga el <code>.pcap</code> y queda también en <code>ot-lab/captures/</code>. Ábralo con doble clic (o <code>wireshark -o mbtcp.tcp.port:5020 archivo.pcap</code>). Filtro de visualización: <code>modbus</code>.</p>
+      </div>
+      <p class="note">La captura ve el tráfico que <b>esta web</b> genera (Query y Response contra el esclavo elegido). Puertos 5020 y 502.</p>
+      <div class="lbl">Capturas guardadas</div>
+      <ul class="files" id="cap-files"></ul>
+    </div>
+    <div class="box">
+      <h3>Wireshark en vivo en su PC · lámina 25</h3>
+      <p class="note">Un contenedor no puede abrir ventanas en su laptop: copie la línea y péguela en una terminal dentro de la carpeta <code>ot-lab</code>. Wireshark se abre ya capturando todo lo que llega al simulador (incluido el sondeo de OpenPLC).</p>
+      <pre class="code small" id="cmd-live">docker run --rm --net container:modbus-sim nicolaka/netshoot \
+  tcpdump -i eth0 -U -w - "tcp port 5020" \
+  | wireshark -k -i - -o mbtcp.tcp.port:5020</pre>
+      <div class="frow"><button class="btn mini" data-copy="cmd-live">Copiar</button>
+        <button class="btn mini gris" id="btn-cmd-openplc">Variante pegada a OpenPLC (lámina 36)</button>
+        <button class="btn mini gris" id="btn-cmd-script">Script <code>scripts/wireshark_vivo.sh</code></button></div>
+    </div>
+  </div>
+
+  <div class="tab" id="tjson">
+    <div class="box">
+      <h3>modbus/server.json · lo que carga el esclavo al arrancar</h3>
+      <div class="frow"><span id="json-meta" class="mono gr">—</span><span class="sp"></span><button class="btn mini" id="btn-json">Recargar</button></div>
+      <table class="tabla small" id="json-table"><thead><tr><th>Tabla</th><th>Clave JSON</th><th>Dir pymodbus</th><th>SCADA</th><th>Valor</th></tr></thead><tbody></tbody></table>
+      <p class="note">El archivo vive en su disco. Para cambiarlo: edite <code>ot-lab/modbus/server.json</code> y aplique <code>docker compose restart modbus-sim</code>. Lo escrito con FC 05/06/15/16 se pierde al reiniciar (<code>persistence</code> desactivada).</p>
+    </div>
+    <div class="box">
+      <h3>«registers» del tablero elegido · para pegar</h3>
+      <pre class="code small" id="json-snippet"></pre>
+      <div class="frow"><button class="btn mini" data-copy="json-snippet">Copiar</button></div>
+    </div>
+  </div>
+</aside>
+</main>
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>

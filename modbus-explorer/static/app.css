@@ -93,7 +93,7 @@ label{display:inline-flex;align-items:center;gap:6px;font-size:16px;color:var(--
 .dg .st2 tspan.on{font-weight:700;fill:var(--rojo)}.dg .st2 tspan.b{font-weight:700;fill:var(--ink)}
 .dg .ty{font-size:14px;fill:var(--gris)}
 .dg .ico{fill:none;stroke:var(--ink);stroke-width:3}.dg .ico.on{fill:var(--rojo);stroke:var(--rojo)}
-.dg .ico.led{transition:fill .3s}.dg .ico.led.lit{fill:var(--rojo);stroke:var(--rojo)}
+.dg .ico.led{transition:fill .3s}.dg .ico.led.lit{fill:#2E9E4F;stroke:#2E9E4F;filter:drop-shadow(0 0 4px #2E9E4F)}
 .dg .pkt{fill:var(--ink);stroke:#fff;stroke-width:2}.dg .pkt.w{fill:var(--rojo)}
 .dg .pkt text{font-family:var(--mono);font-size:14px;font-weight:700;fill:#fff}
 .dg .fan{transform-box:fill-box;transform-origin:center}

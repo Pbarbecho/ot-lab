@@ -76,12 +76,14 @@ label{display:inline-flex;align-items:center;gap:6px;font-size:16px;color:var(--
 .dg .rs{font-family:var(--mono);font-size:15px;fill:var(--gris)}
 .dg .ln{stroke:var(--ink);stroke-width:3.5;fill:none;marker-end:url(#cra);opacity:.9}
 .dg .ln.w{stroke:var(--rojo);marker-end:url(#crr)}
+.dg .acc{font-family:var(--mono);font-size:13px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:#fff;stroke-width:5px}
+.dg .acc.w{fill:var(--rojo)}
 .dg .card{fill:#fff;stroke:var(--ink);stroke-width:3;transition:fill .3s,stroke .3s}
 .dg g.item.flash-r .card{fill:#E9EFF5}
 .dg g.item.flash-w .card{fill:#fde9e7;stroke:var(--rojo)}
 .dg g.item.err .card{stroke:var(--rojo);stroke-dasharray:8 6}
 .dg .nm2{font-size:21px;font-weight:700;fill:var(--ink)}
-.dg .ch{font-family:var(--mono);font-size:21px;font-weight:600;fill:var(--rojo)}
+.dg .ch{font-family:var(--mono);font-size:19px;font-weight:600;fill:var(--rojo)}
 .dg .st2{font-size:19px;fill:var(--cuerpo)}
 .dg .st2 tspan.on{font-weight:700;fill:var(--rojo)}.dg .st2 tspan.b{font-weight:700;fill:var(--ink)}
 .dg .ty{font-size:14px;fill:var(--gris)}

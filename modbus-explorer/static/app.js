@@ -4,10 +4,10 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const NS = 'http://www.w3.org/2000/svg';
 const TABLE_INFO = {
-  di:    { y: 149, name: 'Discrete inputs',   sub: '1x · FC 02 · lectura',   fcs: [2] },
-  coils: { y: 229, name: 'Coils',             sub: '0x · FC 01 · 05 · 15',   fcs: [1, 5, 15] },
-  ir:    { y: 309, name: 'Input registers',   sub: '3x · FC 04 · lectura',   fcs: [4] },
-  hr:    { y: 389, name: 'Holding registers', sub: '4x · FC 03 · 06 · 16',   fcs: [3, 6, 16] },
+  di:    { y: 149, name: 'Discrete inputs',   sub: '1x · FC 02 · R',          acc: 'R',   fcs: [2] },
+  coils: { y: 229, name: 'Coils',             sub: '0x · FC 01·05·15 · R/W', acc: 'R/W', fcs: [1, 5, 15] },
+  ir:    { y: 309, name: 'Input registers',   sub: '3x · FC 04 · R',          acc: 'R',   fcs: [4] },
+  hr:    { y: 389, name: 'Holding registers', sub: '4x · FC 03·06·16 · R/W', acc: 'R/W', fcs: [3, 6, 16] },
 };
 const FC_TABLE = { 1: 'coils', 2: 'di', 3: 'hr', 4: 'ir', 5: 'coils', 6: 'hr', 15: 'coils', 16: 'hr' };
 const FC_WRITE = new Set([5, 6, 15, 16]);
@@ -182,25 +182,32 @@ function buildTablero() {
     st.appendChild(el('text', { class: 'rs', x: 339, y: inf.y + 19 }, inf.sub));
   }
   S.items = [];
-  const nmax = Math.max(T.inputs.length, T.outputs.length, 4);
+  const custom = S.tablero === 'custom';
+  const slotsIn = custom ? Math.max(T.inputs.length, 4) : T.inputs.length;     // huecos fantasma solo en el tablero del editor
+  const slotsOut = custom ? Math.max(T.outputs.length, 4) : T.outputs.length;
+  const nmax = Math.max(slotsIn, slotsOut, 4);
   const H = nmax > 5 ? 40 + nmax * 92 + 8 : 500;
   $('#dg').setAttribute('viewBox', `0 0 870 ${H}`);
   st.querySelector('.plc').setAttribute('height', H - 48);
   const place = (list, x, isOut) => {
-    const pitch = list.length > 4 ? 92 : 112;
+    const pitch = (isOut ? slotsOut : slotsIn) > 4 ? 92 : 112;
     list.forEach((it, i) => {
       const y = 40 + i * pitch, cy = y + 41;
       const ry = TABLE_INFO[it.table].y;
       it.pIn = isOut ? pathStr(555, ry, 640, cy) : pathStr(230, cy, 315, ry);       // sentido de la flecha dibujada
       it.pRead = isOut ? pathStr(640, cy, 555, ry) : it.pIn;                        // lectura: tarjeta → PLC
       it.pWrite = isOut ? it.pIn : pathStr(315, ry, 230, cy);                        // escritura: PLC → tarjeta
-      st.appendChild(el('path', { class: 'ln' + (isOut ? ' w' : ''), d: it.pIn }));
+      const rw = TABLE_INFO[it.table].acc === 'R/W';
+      st.appendChild(el('path', { class: 'ln' + (rw ? ' w' : ''), d: it.pIn }));
+      // etiqueta R / R/W sobre el cable, cerca de la tarjeta
+      const lx = isOut ? 640 - 14 : 230 + 14, ly = cy - 8;
+      st.appendChild(el('text', { class: 'acc' + (rw ? ' w' : ''), x: lx, y: ly, 'text-anchor': isOut ? 'end' : 'start' }, rw ? 'R/W' : 'R'));
       const g = el('g', { class: 'item', id: `it-${it.table}-${it.addr}` });
       g.appendChild(el('rect', { class: 'card', x, y, width: 230, height: 82, rx: 8 }));
       g.appendChild(icon(it.icon, x + 8, y));
       g.appendChild(el('text', { class: 'nm2', x: x + 66, y: y + 34 }, it.name));
       g.appendChild(el('text', { class: 'ch', x: x + 66, y: y + 64 }, `${{ di: 'DI', coils: 'coil', ir: 'IR', hr: 'HR' }[it.table]} ${it.addr}`));
-      const tv = el('text', { class: 'st2', x: x + 136, y: y + 64 }); tv.appendChild(el('tspan', { class: 'b' }, '—')); g.appendChild(tv);
+      const tv = el('text', { class: 'st2', x: x + 146, y: y + 64 }); tv.appendChild(el('tspan', { class: 'b' }, '—')); g.appendChild(tv);
       g.appendChild(el('text', { class: 'ty', x: x + 66, y: y + 80 }, `clave JSON "${it.addr + 1}" · ${{ di: 1, coils: 0, ir: 3, hr: 4 }[it.table]}${String(it.addr + 1).padStart(4, '0')}`));
       it.g = g; it.tv = tv; it.shown = undefined;
       cards.appendChild(g); S.items.push(it);
@@ -217,9 +224,8 @@ function buildTablero() {
       g.appendChild(el('text', { class: 'gh', x: x + 66, y: y + 66, style: 'font-size:15px;font-weight:400' }, 'añádalo en Modbus server'));
       cards.appendChild(g);
     };
-    const nIn = Math.max(T.inputs.length, 4), nOut = Math.max(T.outputs.length, 5);
-    for (let i = T.inputs.length; i < nIn; i++) ghost(0, i, nIn, false);
-    for (let i = T.outputs.length; i < nOut; i++) ghost(640, i, nOut, true);
+    for (let i = T.inputs.length; i < slotsIn; i++) ghost(0, i, slotsIn, false);
+    for (let i = T.outputs.length; i < slotsOut; i++) ghost(640, i, slotsOut, true);
   }
   S.items.forEach(refreshCard);
   updatePlcSub();

@@ -132,8 +132,8 @@
       <g id="dg-fx"></g>
     </svg>
     <div class="legend">
-      <span><i class="sw azul"></i>flecha azul = lectura · los datos viajan en la <b>Response</b> (FC 01–04)</span>
-      <span><i class="sw rojo"></i>flecha roja = escritura · los datos viajan en la <b>Query</b> (FC 05 · 06 · 15 · 16)</span>
+      <span><i class="sw azul"></i>cable azul · <b>R</b> solo lectura: discrete inputs e input registers · el maestro solo lee (FC 02 · 04) · los datos viajan en la <b>Response</b></span>
+      <span><i class="sw rojo"></i>cable rojo · <b>R/W</b> lectura y escritura: coils y holding registers · el maestro lee (FC 01 · 03) y escribe (FC 05 · 06 · 15 · 16) · al escribir, los datos viajan en la <b>Query</b></span>
       <span class="gr">clave JSON = dirección pymodbus + 1 · SCADA 40001 = dirección 0</span>
     </div>
   </div>

@@ -27,8 +27,8 @@ Contenedor `modbus-explorer` (172.28.0.40): una web que ejecuta **pymodbus** den
 
 | Pestaña | Qué hace |
 |---|---|
-| **Escenario** (arriba a la izquierda) | Réplica de la lámina 18: laptop, red Docker ot-lab, `modbus-explorer`, `modbus-sim` y `openplc`. Los enlaces se iluminan con lo que ocurre (sesión pymodbus, sondeo del PLC cada 100 ms, captura) y cada petición recorre el enlace como un punto. Se puede ocultar. |
-| **Tablero** (izquierda) | Réplica dinámica de la lámina 31 del Taller 5 (también los tableros de las láminas 30 y 21). Cada lectura o escritura anima un paquete con su FC por la flecha correspondiente, resalta la tabla del esclavo y actualiza las tarjetas (`antes → después` en rojo). |
+| **Escenario** (arriba a la izquierda) | Vista simple por niveles CIM (Clase 2): Nivel 2 Supervisión (`modbus-explorer`), Nivel 1 Control (`openplc`), Nivel 0 Campo (`modbus-sim`), con el protocolo que cruza cada frontera y la regla «una orden baja, un dato sube». El botón **Detalle** cambia a la réplica de la lámina 18 (laptop, red Docker, puertos, bind mounts). En ambas, los enlaces se iluminan con lo que ocurre (sesión pymodbus, sondeo del PLC cada 100 ms, captura) y cada petición recorre el enlace como un punto. |
+| **Tablero** (izquierda) | Arranca vacío, con huecos en gris que se van coloreando a medida que se crean sensores y parámetros en **Modbus server** (primera pestaña). También carga los tableros de las láminas 31, 30 y 21 del Taller 5. Cada lectura o escritura anima un paquete con su FC por la flecha correspondiente, resalta la tabla del esclavo y actualiza las tarjetas (`antes → después` en rojo). |
 | **pymodbus** | Sesión `ModbusTcpClient` contra modbus-sim, OpenPLC, Conpot o un host propio. Lecturas FC 01/02/03/04, escrituras FC 05/06/15/16, los pasos del reto de cada lámina con un botón, y sondeo continuo (100 ms – 2 s) como el runtime de OpenPLC. Cada operación muestra la línea pymodbus equivalente, la **Query y la Response reales (MBAP + PDU, byte a byte)**, y la «tabla a entregar» (FC, dónde viajan los datos, PDU, valor) exportable a CSV. Si pymodbus se queja (p. ej. `70000`) se indica que no viajó ninguna trama; si el esclavo responde excepción se decodifica el código. |
 | **OpenPLC** | Automatiza el panel de OpenPLC por dentro de la red: **Preparar todo** = Modbus Server en 502 + Slave Device `modbus-sim` (Start 0, DI 2, coils 2, IR 2, HR-R 2, HR-W 0) + subida y compilación del programa + Start PLC. Plantillas editables `monito.st` (ST) y `secuencia_sfc.st` (**SFC**/Grafcet textual: `STEP`, `TRANSITION`, acciones con cualificador `N`). Start/Stop PLC, alta/baja de Slave Devices, **Monitoring embebido** (misma tabla que OpenPLC, leída vía `monitor-update` y pintada en la web) y botón al Monitoring original. Botones para leer el esclavo interno del PLC con pymodbus (`%IX100.0` = DI 800, `%IW100` = IR 100…). |
 | **Wireshark** | **Iniciar captura** arranca `tcpdump` dentro del contenedor (puertos 5020 y 502); **Detener** y **Abrir en Wireshark** descargan el `.pcap`, que queda también en `captures/`. Para Wireshark en vivo pegado a un contenedor (láminas 25 y 36) hay un comando para copiar y el script `scripts/wireshark_vivo.sh`. |
@@ -36,7 +36,7 @@ Contenedor `modbus-explorer` (172.28.0.40): una web que ejecuta **pymodbus** den
 
 El socket de Docker (`/var/run/docker.sock`) se monta solo para el botón «Guardar y reiniciar modbus-sim»; si no lo quiere, quite esa línea del compose y reinicie a mano con `docker compose restart modbus-sim`.
 
-Cada bloque de la web lleva una barra con un asa (⠿) para arrastrarlo a la columna izquierda o a otra pestaña (la disposición se guarda en el navegador; «⟲ disposición» la restablece) y un botón «↗ pestaña» que lo abre solo en una pestaña nueva, sincronizada con la principal: el tablero puede ir al proyector mientras los controles quedan en el portátil.
+Cada bloque de la web lleva una barra con un asa (⠿) para arrastrarlo a la columna izquierda o a otra pestaña (la disposición se guarda en el navegador; «⟲ disposición» la restablece). Los bloques de la izquierda (escenario, tablero, tramas, tabla) tienen «↗ pestaña» para abrirse solos; el «↗ pestaña» de la barra de pestañas abre la pestaña activa entera (p. ej. pymodbus completo). Todas las ventanas quedan sincronizadas con la principal: el tablero puede ir al proyector mientras los controles quedan en el portátil.
 
 Limitaciones honestas: un contenedor no puede abrir ventanas en la laptop, así que «Abrir en Wireshark» descarga el archivo (doble clic lo abre) y la captura en vivo se lanza desde la terminal con el script. El iframe del Monitoring original funciona en Chrome/Edge/Firefox tras iniciar sesión dentro del marco; Safari bloquea esa cookie, use el botón externo.
 
@@ -55,7 +55,7 @@ Dos trampas de OpenPLC que la web ya esquiva: (1) un Slave Device TCP creado con
 - `docker-compose.linux.yml.bak`— versión original Linux
 - `modbus-explorer/`            — Explorador Modbus (FastAPI + pymodbus + tcpdump): `app.py`, `static/` (web), `programs/` (plantillas .st para OpenPLC)
 - `modbus/server.json`          — registros del esclavo Modbus simulado (clave JSON = dirección + 1); lo escribe el editor «Modbus server» del explorador
-- `modbus/tablero.json`         — nombres, iconos y formatos del tablero del editor (acompaña a server.json)
+- `modbus/tablero.json`         — nombres, iconos y formatos del tablero del editor (lo crea cada estudiante; no se versiona)
 - `opcua/`                      — servidor OPC UA propio en Python (asyncua)
 - `mosquitto/mosquitto.conf`    — broker MQTT (sin auth, solo laboratorio)
 - `scripts/`                    — `comprobacion2_modbus.sh`, `comprobacion3_opcua.sh`, `wireshark_vivo.sh`, `vacio.st`

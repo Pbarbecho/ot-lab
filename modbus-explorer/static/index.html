@@ -29,7 +29,45 @@
 <main id="main">
 <section class="left" id="left" data-drop="left">
   <div class="panel" id="esc-panel" data-block="esc" data-title="Escenario">
-    <div class="lbl row"><span>Escenario · qué hay y dónde vive (lámina 18)</span><span class="sp"></span><span id="esc-meta" class="mono gr"></span><button class="btn mini gris" id="btn-esc">Ocultar</button></div>
+    <div class="lbl row"><span id="esc-title">Escenario · por niveles CIM (Clase 2)</span><span class="sp"></span><span id="esc-meta" class="mono gr"></span><button class="btn mini" id="btn-esc-detail">Detalle</button><button class="btn mini gris" id="btn-esc">Ocultar</button></div>
+
+    <svg id="esc-cim" viewBox="0 0 1240 430" class="esc cim" aria-label="Escenario por niveles CIM: supervisión, control y campo">
+      <defs>
+        <marker id="cm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#002856"/></marker>
+        <marker id="cr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#A51008"/></marker>
+        <marker id="cg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#6F6F6F"/></marker>
+      </defs>
+      <!-- bandas de nivel -->
+      <rect class="lvl l2" x="10" y="10" width="1220" height="130" rx="6"/>
+      <rect class="lvl l1" x="10" y="150" width="1220" height="130" rx="6"/>
+      <rect class="lvl l0" x="10" y="290" width="1220" height="130" rx="6"/>
+      <text class="ln" x="30" y="42">NIVEL 2 · SUPERVISIÓN</text><text class="ls" x="30" y="66">SCADA / HMI · ver y comandar</text><text class="lt" x="30" y="90">escala: segundos</text><text class="ls" x="30" y="118">decisiones de operación</text>
+      <text class="ln" x="30" y="182">NIVEL 1 · CONTROL</text><text class="ls" x="30" y="206">PLC · ejecutar la lógica</text><text class="lt" x="30" y="230">escala: milisegundos</text><text class="ls" x="30" y="258">ciclo de 100 ms, sin perder periodo</text>
+      <text class="ln" x="30" y="322">NIVEL 0 · CAMPO</text><text class="ls" x="30" y="346">sensores y actuadores · medir y actuar</text><text class="lt" x="30" y="370">escala: µs – ms</text><text class="ls" x="30" y="398">bits y medidas: DI · coils · IR · HR</text>
+
+      <!-- equipos -->
+      <g data-node="explorer" class="node"><rect class="ct ex" x="330" y="30" width="300" height="90" rx="8"/><text class="n" x="480" y="62" text-anchor="middle">modbus-explorer</text><text class="s" x="480" y="86" text-anchor="middle">esta web · maestro pymodbus</text><text class="s" x="480" y="108" text-anchor="middle">172.28.0.40 · localhost:8500</text></g>
+      <text class="ls g" x="1210" y="118" text-anchor="end">también aquí: Ignition :8088 · FUXA :1881 · Node-RED :1880</text>
+      <g data-node="plc" class="node"><rect class="ct" x="330" y="170" width="300" height="90" rx="8"/><text class="n" x="480" y="202" text-anchor="middle">openplc</text><text class="s" x="480" y="226" text-anchor="middle">PLC · maestro del campo · esclavo :502</text><text class="s" x="480" y="248" text-anchor="middle">172.28.0.10 · panel :8080</text></g>
+      <g data-node="sim" class="node"><rect class="ct sl" x="330" y="310" width="300" height="90" rx="8"/><text class="n" x="480" y="342" text-anchor="middle">modbus-sim · tablero</text><text class="s" x="480" y="366" text-anchor="middle">campo simulado: pulsador, LED, T, CO₂…</text><text class="s" x="480" y="388" text-anchor="middle">172.28.0.30 · :5020 · esclavo</text></g>
+
+      <!-- fronteras y protocolos -->
+      <path class="mb" data-link="ex-plc" d="M450 120 V166"/><path class="mb up" data-link="ex-plc" d="M510 166 V120"/>
+      <text class="ll" data-link="ex-plc" x="526" y="150">Modbus TCP :502 · a petición</text>
+      <path class="mb" data-link="plc-sim" d="M450 260 V306"/><path class="mb up" data-link="plc-sim" d="M510 306 V260"/>
+      <text class="ll" data-link="plc-sim" x="526" y="290">Modbus TCP :5020 · cada 100 ms</text>
+      <path class="mb dash" data-link="ex-sim" d="M630 75 H800 V355 H634"/>
+      <text class="ll" data-link="ex-sim" x="814" y="208">Modbus TCP :5020</text><text class="ll g" x="814" y="230">maestro directo al campo</text><text class="ll g" x="814" y="252">(práctica 1a · sin PLC)</text>
+
+      <!-- regla de lectura -->
+      <text class="rule" x="1210" y="48" text-anchor="end">↓ baja la orden · consigna, arranque</text>
+      <text class="rule" x="1210" y="72" text-anchor="end">FC 05 · 06 · 15 · 16</text>
+      <text class="rule" x="1210" y="340" text-anchor="end">↑ sube el dato · estado, medidas</text>
+      <text class="rule" x="1210" y="364" text-anchor="end">FC 01 · 02 · 03 · 04</text>
+      <text class="rule g" x="1210" y="200" text-anchor="end">al bajar: más frecuencia</text>
+      <text class="rule g" x="1210" y="224" text-anchor="end">y más tiempo real</text>
+      <g id="cim-fx"></g>
+    </svg>
     <svg id="esc" viewBox="0 0 1240 560" class="esc" aria-label="Escenario: laptop, red Docker ot-lab y contenedores">
       <defs>
         <marker id="am" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#002856"/></marker>
@@ -47,19 +85,19 @@
       <rect class="dk" x="30" y="160" width="1180" height="370" rx="6"/>
       <text class="hl" x="50" y="188">DOCKER · RED BRIDGE ot-lab</text><text class="hs" x="420" y="188">172.28.0.0/24</text>
 
-      <g id="esc-explorer"><rect class="ct ex" x="60" y="220" width="300" height="130" rx="8"/>
+      <g id="esc-explorer" data-node="explorer"><rect class="ct ex" x="60" y="220" width="300" height="130" rx="8"/>
         <text class="n" x="210" y="252" text-anchor="middle">modbus-explorer</text>
         <text class="s" x="210" y="278" text-anchor="middle">172.28.0.40 · :8500</text>
         <text class="r" x="210" y="304" text-anchor="middle">MAESTRO · esta web · pymodbus</text>
         <text class="s" x="210" y="330" text-anchor="middle">tcpdump → captures/</text></g>
 
-      <g id="esc-sim"><rect class="ct sl" x="880" y="220" width="300" height="130" rx="8"/>
+      <g id="esc-sim" data-node="sim"><rect class="ct sl" x="880" y="220" width="300" height="130" rx="8"/>
         <text class="n" x="1030" y="252" text-anchor="middle">modbus-sim</text>
         <text class="s" x="1030" y="278" text-anchor="middle">172.28.0.30 · :5020</text>
         <text class="r" x="1030" y="304" text-anchor="middle">ESCLAVO</text>
         <text class="s" x="1030" y="330" text-anchor="middle">oitc/modbus-server</text></g>
 
-      <g id="esc-plc"><rect class="ct" x="470" y="390" width="300" height="130" rx="8"/>
+      <g id="esc-plc" data-node="plc"><rect class="ct" x="470" y="390" width="300" height="130" rx="8"/>
         <text class="n" x="620" y="422" text-anchor="middle">openplc</text>
         <text class="s" x="620" y="448" text-anchor="middle">172.28.0.10 · :502 · :8080</text>
         <text class="r" x="620" y="474" text-anchor="middle">MAESTRO del simulador</text>
@@ -69,13 +107,13 @@
       <path class="wb" d="M300 130 V150 H620 V386"/><text class="ll g" x="470" y="146" text-anchor="middle">:8080 publicado</text>
       <path class="bm" id="l-json" d="M780 130 V150 H1030 V216"/><text class="ll g" x="905" y="146" text-anchor="middle">bind mount</text>
       <path class="bm" id="l-cap" d="M1075 130 V150 H1190 V340 H380 V300 H364"/><text class="ll g" x="1200" y="250" transform="rotate(90 1200 250)" text-anchor="middle">.pcap</text>
-      <path class="mb" id="l-ex-sim" d="M360 270 L876 270"/><text class="ll" id="t-ex-sim" x="618" y="262" text-anchor="middle">FC 01–16 · a petición</text>
-      <path class="mb" id="l-ex-plc" d="M300 350 L520 390"/><text class="ll" id="t-ex-plc" x="372" y="392" text-anchor="middle">pymodbus :502</text>
-      <path class="mb" id="l-plc-sim" d="M770 440 L900 350"/><text class="ll" id="t-plc-sim" x="900" y="420" text-anchor="middle">FC 02·15·04·03 · cada 100 ms</text>
+      <path class="mb" id="l-ex-sim" data-link="ex-sim" d="M360 270 L876 270"/><text class="ll" id="t-ex-sim" data-link="ex-sim" x="618" y="262" text-anchor="middle">FC 01–16 · a petición</text>
+      <path class="mb" id="l-ex-plc" data-link="ex-plc" d="M300 350 L520 390"/><text class="ll" id="t-ex-plc" data-link="ex-plc" x="372" y="392" text-anchor="middle">pymodbus :502</text>
+      <path class="mb" id="l-plc-sim" data-link="plc-sim" d="M770 440 L900 350"/><text class="ll" id="t-plc-sim" data-link="plc-sim" x="900" y="420" text-anchor="middle">FC 02·15·04·03 · cada 100 ms</text>
       <path class="wb" id="l-ex-http" d="M360 320 C 420 320, 420 410, 466 410"/><text class="ll g" x="440" y="366" text-anchor="middle">HTTP :8080</text>
       <g id="esc-fx"></g>
     </svg>
-    <div class="legend"><span><i class="sw azul"></i>Modbus TCP</span><span><i class="sw gris"></i>puertos publicados · bind mounts · HTTP</span><span class="gr">los enlaces se iluminan con lo que está ocurriendo: sesión pymodbus, sondeo del PLC, captura</span></div>
+    <div class="legend"><span><i class="sw azul"></i>Modbus TCP · el protocolo que cruza cada frontera</span><span><i class="sw gris"></i>puertos publicados · bind mounts · HTTP (vista Detalle)</span><span class="gr">los enlaces se iluminan con lo que está ocurriendo: sesión pymodbus, sondeo del PLC, captura</span></div>
   </div>
   <div class="panel" data-block="tablero" data-title="Tablero">
     <div class="lbl row">
@@ -122,13 +160,52 @@
 
 <aside class="right">
   <nav class="tabs">
-    <button data-tab="t1a" class="on">pymodbus</button>
+    <button data-tab="tjson" class="on">Modbus server</button>
+    <button data-tab="t1a">pymodbus</button>
     <button data-tab="t1b">OpenPLC</button>
     <button data-tab="tws">Wireshark</button>
-    <button data-tab="tjson">Modbus server</button>
+    <button class="tabopen" id="btn-tab-open" title="Abrir esta pestaña entera en una pestaña nueva del navegador">↗ pestaña</button>
   </nav>
 
-  <div class="tab on" id="t1a" data-drop="t1a">
+  <div class="tab on" id="tjson" data-drop="tjson">
+    <div class="box" data-block="ms-editor" data-title="Modbus server · editor">
+      <h3>Modbus server · <code>modbus-sim</code> · editor del tablero</h3>
+      <div class="frow wrap">
+        <label>Título <input id="ed-title" value="Mi tablero" class="w190"></label>
+        <label>Log <select id="ed-log"><option>DEBUG</option><option>INFO</option></select></label>
+        <label class="chk"><input type="checkbox" id="ed-init" checked> direcciones no declaradas responden 0</label>
+      </div>
+      <div class="frow wrap">
+        <span class="gr">Cargar:</span>
+        <button class="btn mini gris" data-preset="lam31">Lámina 31</button>
+        <button class="btn mini gris" data-preset="lam30">Lámina 30</button>
+        <button class="btn mini gris" data-preset="lam21">Lámina 21</button>
+        <button class="btn mini gris" id="btn-ed-fromjson">server.json actual</button>
+        <button class="btn mini gris" id="btn-ed-empty">Vacío</button>
+      </div>
+      <div class="edcols">
+        <div><div class="lbl">Entradas · campo → PLC <input id="ed-left" class="w190 mini-in" value="CAMPO · ENTRADAS"></div>
+          <div class="edlist" id="ed-inputs"></div>
+          <div class="frow"><button class="btn mini" data-add="di">+ Entrada digital (DI)</button><button class="btn mini" data-add="ir">+ Input register</button></div></div>
+        <div><div class="lbl">Salidas y parámetros · PLC → campo <input id="ed-right" class="w190 mini-in" value="SALIDAS Y PARÁMETROS"></div>
+          <div class="edlist" id="ed-outputs"></div>
+          <div class="frow"><button class="btn mini rojo" data-add="coils">+ Coil</button><button class="btn mini rojo" data-add="hr">+ Holding register</button></div></div>
+      </div>
+      <p class="note">La dirección se asigna por orden dentro de cada tabla (DI 0, 1…; coil 0, 1…). Clave JSON = dirección + 1. Los cambios se ven al instante en el tablero de la izquierda; <b>Guardar</b> escribe <code>modbus/server.json</code> (y <code>tablero.json</code>); <b>reiniciar</b> aplica en el simulador (lo escrito con FC 05/06/15/16 se pierde).</p>
+      <div class="frow wrap">
+        <button class="btn" id="btn-ed-save">Guardar server.json</button>
+        <button class="btn rojo" id="btn-ed-apply">Guardar y reiniciar modbus-sim</button>
+        <span class="sp"></span><span id="ed-status" class="mono gr"></span>
+      </div>
+    </div>
+    <div class="box" data-block="ms-json" data-title="registers generado">
+      <h3>«registers» generado · lo que carga el esclavo</h3>
+      <pre class="code small" id="json-snippet"></pre>
+      <div class="frow"><button class="btn mini" data-copy="json-snippet">Copiar</button><span class="sp"></span><span id="json-meta" class="mono gr">—</span><button class="btn mini gris" id="btn-json">Releer archivo</button></div>
+      <table class="tabla small" id="json-table"><thead><tr><th>Tabla</th><th>Clave JSON</th><th>Dir pymodbus</th><th>SCADA</th><th>Valor en disco</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+<div class="tab" id="t1a" data-drop="t1a">
     <div class="box" data-block="s-session" data-title="Sesión">
       <h3>1 · Sesión · <code>ModbusTcpClient</code></h3>
       <div class="frow">
@@ -306,45 +383,7 @@
     </div>
   </div>
 
-  <div class="tab" id="tjson" data-drop="tjson">
-    <div class="box" data-block="ms-editor" data-title="Modbus server · editor">
-      <h3>Modbus server · <code>modbus-sim</code> · editor del tablero</h3>
-      <div class="frow wrap">
-        <label>Título <input id="ed-title" value="Mi tablero" class="w190"></label>
-        <label>Log <select id="ed-log"><option>DEBUG</option><option>INFO</option></select></label>
-        <label class="chk"><input type="checkbox" id="ed-init" checked> direcciones no declaradas responden 0</label>
-      </div>
-      <div class="frow wrap">
-        <span class="gr">Cargar:</span>
-        <button class="btn mini gris" data-preset="lam31">Lámina 31</button>
-        <button class="btn mini gris" data-preset="lam30">Lámina 30</button>
-        <button class="btn mini gris" data-preset="lam21">Lámina 21</button>
-        <button class="btn mini gris" id="btn-ed-fromjson">server.json actual</button>
-        <button class="btn mini gris" id="btn-ed-empty">Vacío</button>
-      </div>
-      <div class="edcols">
-        <div><div class="lbl">Entradas · campo → PLC <input id="ed-left" class="w190 mini-in" value="CAMPO · ENTRADAS"></div>
-          <div class="edlist" id="ed-inputs"></div>
-          <div class="frow"><button class="btn mini" data-add="di">+ Entrada digital (DI)</button><button class="btn mini" data-add="ir">+ Input register</button></div></div>
-        <div><div class="lbl">Salidas y parámetros · PLC → campo <input id="ed-right" class="w190 mini-in" value="SALIDAS Y PARÁMETROS"></div>
-          <div class="edlist" id="ed-outputs"></div>
-          <div class="frow"><button class="btn mini rojo" data-add="coils">+ Coil</button><button class="btn mini rojo" data-add="hr">+ Holding register</button></div></div>
-      </div>
-      <p class="note">La dirección se asigna por orden dentro de cada tabla (DI 0, 1…; coil 0, 1…). Clave JSON = dirección + 1. Los cambios se ven al instante en el tablero de la izquierda; <b>Guardar</b> escribe <code>modbus/server.json</code> (y <code>tablero.json</code>); <b>reiniciar</b> aplica en el simulador (lo escrito con FC 05/06/15/16 se pierde).</p>
-      <div class="frow wrap">
-        <button class="btn" id="btn-ed-save">Guardar server.json</button>
-        <button class="btn rojo" id="btn-ed-apply">Guardar y reiniciar modbus-sim</button>
-        <span class="sp"></span><span id="ed-status" class="mono gr"></span>
-      </div>
-    </div>
-    <div class="box" data-block="ms-json" data-title="registers generado">
-      <h3>«registers» generado · lo que carga el esclavo</h3>
-      <pre class="code small" id="json-snippet"></pre>
-      <div class="frow"><button class="btn mini" data-copy="json-snippet">Copiar</button><span class="sp"></span><span id="json-meta" class="mono gr">—</span><button class="btn mini gris" id="btn-json">Releer archivo</button></div>
-      <table class="tabla small" id="json-table"><thead><tr><th>Tabla</th><th>Clave JSON</th><th>Dir pymodbus</th><th>SCADA</th><th>Valor en disco</th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
-</aside>
+  </aside>
 </main>
 <div id="toast" class="toast hidden"></div>
 <script src="app.js"></script>

@@ -129,7 +129,7 @@ const STEPS_1B = [
 ];
 
 /* ------------------------------------------------------------------ estado */
-const S = { tablero: 'lam31', vals: { di: {}, coils: {}, ir: {}, hr: {} }, items: [], log: [], targets: [], session: {}, poll: null, mon: null, capTimer: null };
+const S = { tablero: 'custom', vals: { di: {}, coils: {}, ir: {}, hr: {} }, items: [], log: [], targets: [], session: {}, poll: null, mon: null, capTimer: null };
 
 /* ------------------------------------------------------------------ utilidades */
 async function api(path, body, method) {
@@ -207,6 +207,20 @@ function buildTablero() {
     });
   };
   place(T.inputs, 0, false); place(T.outputs, 600, true);
+  if (S.tablero === 'custom') {   // huecos en gris: se irán llenando desde el editor «Modbus server»
+    const ghost = (x, i, n, isOut) => {
+      const pitch = n > 4 ? 92 : 112; const y = 40 + i * pitch;
+      const g = el('g', { class: 'item ghost' });
+      g.appendChild(el('rect', { class: 'card', x, y, width: 270, height: 82, rx: 8 }));
+      g.appendChild(el('rect', { class: 'ico', x: x + 14, y: y + 20, width: 40, height: 40, rx: 8 }));
+      g.appendChild(el('text', { class: 'gh', x: x + 66, y: y + 40 }, isOut ? 'salida / parámetro' : 'entrada / medida'));
+      g.appendChild(el('text', { class: 'gh', x: x + 66, y: y + 66, style: 'font-size:15px;font-weight:400' }, 'añádalo en Modbus server'));
+      cards.appendChild(g);
+    };
+    const nIn = Math.max(T.inputs.length, 4), nOut = Math.max(T.outputs.length, 5);
+    for (let i = T.inputs.length; i < nIn; i++) ghost(0, i, nIn, false);
+    for (let i = T.outputs.length; i < nOut; i++) ghost(600, i, nOut, true);
+  }
   S.items.forEach(refreshCard);
   updatePlcSub();
   renderSteps('#steps', T.steps);
@@ -484,8 +498,9 @@ async function jsonRefresh() {
 /* ------------------------------------------------------------------ arranque */
 function tableroOptions() {
   const ts = $('#tablero'); const cur = ts.value;
-  ts.innerHTML = Object.entries(TABLEROS).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join('');
-  if (cur) ts.value = cur;
+  const order = ['custom', ...Object.keys(TABLEROS).filter(k => k !== 'custom')];
+  ts.innerHTML = order.filter(k => TABLEROS[k]).map(k => `<option value="${k}">${esc(TABLEROS[k].label)}</option>`).join('');
+  ts.value = cur && TABLEROS[cur] ? cur : S.tablero;
 }
 function init() {
   TABLEROS.custom = customTablero();
@@ -525,7 +540,7 @@ function init() {
   $('#btn-mon-toggle').onclick = monToggle;
   $('#btn-iframe').onclick = () => { $('#iframe-wrap').innerHTML = '<iframe src="http://localhost:8080/monitoring" title="OpenPLC Monitoring"></iframe>'; };
   initTargets().then(() => { const s = S.session; if (s && s.connected) setChipSession(); });
-  capRefresh(); plcPrograms(); plcRefresh();
+  capRefresh(); plcPrograms(); plcRefresh(); jsonRefresh();
 }
 document.addEventListener('DOMContentLoaded', init);
 
@@ -541,7 +556,7 @@ function edAddresses() {   // dirección = orden dentro de cada tabla
 function customTablero() {
   edAddresses();
   const mk = it => ({ table: it.table, addr: it.addr, name: it.name, icon: it.icon, format: it.format });
-  const T = { label: `${ED.title} · editor (Modbus server)`, left: ED.left, right: ED.right, inputs: ED.inputs.map(mk), outputs: ED.outputs.map(mk), json: null, steps: [] };
+  const T = { label: `${ED.title} · editor (Modbus server)${ED.inputs.length + ED.outputs.length ? '' : ' · vacío'}`, left: ED.left, right: ED.right, inputs: ED.inputs.map(mk), outputs: ED.outputs.map(mk), json: null, steps: [] };
   const n = { di: 0, coils: 0, ir: 0, hr: 0 }; [...ED.inputs, ...ED.outputs].forEach(it => { n[it.table] = Math.max(n[it.table], it.addr + 1); });
   const names = { di: ['FC 02', 'entradas digitales'], coils: ['FC 01', 'coils'], ir: ['FC 04', 'input registers'], hr: ['FC 03', 'holding registers'] };
   for (const t of ['di', 'ir', 'coils', 'hr']) if (n[t]) T.steps.push({ t: `<b>${names[t][0]}</b> · leer ${n[t]} ${names[t][1]} en bloque · <code>count=${n[t]}</code>`, op: { read: t, addr: 0, count: n[t] } });
@@ -656,48 +671,56 @@ async function edInit() {
     const j = await api('/api/modbus-server');
     if (j.tablero && (j.tablero.inputs.length || j.tablero.outputs.length)) {
       Object.assign(ED, { title: j.tablero.title, left: j.tablero.left, right: j.tablero.right, inputs: j.tablero.inputs, outputs: j.tablero.outputs });
-    } else if (j.registers) { edFromRegisters(j.registers); ED.title = 'server.json actual'; }
+    }   // sin tablero.json: el editor arranca vacío y el tablero muestra los huecos en gris
     if (j.server) { ED.logLevel = (j.server.logging && j.server.logging.logLevel) || 'DEBUG'; ED.init = j.registers ? j.registers.initializeUndefinedRegisters !== false : true; }
     if (!j.docker) $('#btn-ed-apply').title = 'Sin socket de Docker: guarde y ejecute docker compose restart modbus-sim';
     TABLEROS.custom = customTablero(); tableroOptions(); edRender(); ED.dirty = false; $('#ed-status').textContent = j.writable ? 'listo' : 'carpeta modbus/ solo lectura';
   } catch (e) { $('#ed-status').textContent = e.message; }
 }
 
-/* ------------------------------------------------------------------ escenario (lámina 18) */
+/* ------------------------------------------------------------------ escenario: vista simple por niveles CIM (Clase 2) y vista Detalle (lámina 18) */
 let escTimer = null;
+function escSvg() { return document.body.classList.contains('esc-detail') ? $('#esc') : $('#esc-cim'); }
 function escUpdate() {
-  const svg = $('#esc'); if (!svg) return;
+  if (!$('#esc') || !$('#esc-cim')) return;
   const s = S.session || {}; const toSim = s.connected && s.host === '172.28.0.30'; const toPlc = s.connected && s.host === '172.28.0.10';
-  const set = (id, cls, on) => { const e = $('#' + id); if (e) e.classList.toggle(cls, !!on); };
-  set('l-ex-sim', 'on', true); set('l-ex-plc', 'on', true); set('l-plc-sim', 'on', true);
-  set('l-ex-sim', 'live', toSim); set('t-ex-sim', 'live', toSim); set('esc-sim', 'live', toSim);
-  set('l-ex-plc', 'live', toPlc); set('t-ex-plc', 'live', toPlc); set('esc-plc', 'live', toPlc);
   const running = S.plcStatus === 'Running';
-  set('l-plc-sim', 'live', running); set('t-plc-sim', 'live', running); set('esc-plc', 'off', S.plcStatus === 'Stopped' || S.plcStatus === 'sin acceso');
-  set('l-cap', 'live', S.capRunning); set('esc-cap', 'live', S.capRunning);
-  set('l-browser', 'live', true);
+  const setLink = (name, on) => $$(`[data-link="${name}"]`).forEach(e => { e.classList.add('on'); e.classList.toggle('live', !!on); });
+  const setNode = (name, cls, on) => $$(`[data-node="${name}"]`).forEach(e => e.classList.toggle(cls, !!on));
+  setLink('ex-sim', toSim); setLink('ex-plc', toPlc); setLink('plc-sim', running);
+  setNode('sim', 'live', toSim); setNode('plc', 'live', toPlc); setNode('plc', 'off', S.plcStatus === 'Stopped' || S.plcStatus === 'sin acceso');
+  setNode('explorer', 'live', s.connected);
+  const set = (id, cls, on) => { const e = $('#' + id); if (e) e.classList.toggle(cls, !!on); };
+  set('l-cap', 'live', S.capRunning); set('esc-cap', 'live', S.capRunning); set('l-browser', 'live', true);
   $('#esc-meta').textContent = `${s.connected ? 'sesión → ' + s.host + ':' + s.port : 'sin sesión'} · PLC ${S.plcStatus || '?'}${S.capRunning ? ' · capturando' : ''}`;
-  if (running && !escTimer) escTimer = setInterval(() => escDot('l-plc-sim', 900), 1000);
+  if (running && !escTimer) escTimer = setInterval(() => escDot('plc-sim', 900), 1000);
   if (!running && escTimer) { clearInterval(escTimer); escTimer = null; }
 }
-function escDot(pathId, dur, back) {
-  const p = $('#' + pathId); const fx = $('#esc-fx'); if (!p || !fx) return;
+function escDot(link, dur, back) {
+  const svg = escSvg(); if (!svg || svg.classList.contains('hidden')) return;
+  const p = svg.querySelector(`path[data-link="${link}"]:not(.up)`) || svg.querySelector('#' + link); const fx = svg.querySelector('#esc-fx, #cim-fx'); if (!p || !fx) return;
   const c = el('circle', { r: 7, class: 'dot' });
   const am = el('animateMotion', { dur: `${dur || 600}ms`, begin: 'indefinite', fill: 'freeze', path: p.getAttribute('d'), keyPoints: back ? '1;0' : '0;1', keyTimes: '0;1', calcMode: 'linear' });
   c.appendChild(am); fx.appendChild(c); am.beginElement(); setTimeout(() => c.remove(), (dur || 600) + 80);
 }
 function escPacket() {
-  const s = S.session || {}; const id = s.host === '172.28.0.10' ? 'l-ex-plc' : 'l-ex-sim';
-  escDot(id, 500); setTimeout(() => escDot(id, 500, true), 520); escDot('l-browser', 400);
+  const s = S.session || {}; const link = s.host === '172.28.0.10' ? 'ex-plc' : 'ex-sim';
+  escDot(link, 500); setTimeout(() => escDot(link, 500, true), 520); escDot('l-browser', 400);
 }
 function escInit() {
-  const key = 'esc-hidden'; let hidden = false;
-  try { hidden = localStorage.getItem(key) === '1'; } catch (e) { }
-  const apply = () => { $('#esc').classList.toggle('hidden', hidden); $('#btn-esc').textContent = hidden ? 'Mostrar' : 'Ocultar'; };
+  const key = 'esc-hidden', keyD = 'esc-detail'; let hidden = false, detail = false;
+  try { hidden = localStorage.getItem(key) === '1'; detail = localStorage.getItem(keyD) === '1'; } catch (e) { }
+  const apply = () => {
+    document.body.classList.toggle('esc-detail', detail);
+    $('#esc').classList.toggle('hidden', hidden || !detail); $('#esc-cim').classList.toggle('hidden', hidden || detail);
+    $('#btn-esc').textContent = hidden ? 'Mostrar' : 'Ocultar';
+    $('#btn-esc-detail').textContent = detail ? 'Simple' : 'Detalle'; $('#btn-esc-detail').classList.toggle('hidden', hidden);
+    $('#esc-title').textContent = detail ? 'Escenario · detalle: qué hay y dónde vive (lámina 18)' : 'Escenario · por niveles CIM (Clase 2) · una orden baja, un dato sube';
+  };
   $('#btn-esc').onclick = () => { hidden = !hidden; try { localStorage.setItem(key, hidden ? '1' : '0'); } catch (e) { } apply(); };
+  $('#btn-esc-detail').onclick = () => { detail = !detail; try { localStorage.setItem(keyD, detail ? '1' : '0'); } catch (e) { } apply(); };
   apply(); escUpdate();
 }
-
 
 /* ------------------------------------------------------------------ disposición: bloques movibles y en pestaña nueva */
 const LAYOUT_KEY = 'explorer-layout-v1';
@@ -720,9 +743,10 @@ function layoutApply() {
 function layoutInit() {
   $$('[data-block]').forEach(b => {
     const bh = document.createElement('div'); bh.className = 'bh';
-    bh.innerHTML = `<span class="hd" title="Arrastre para mover este bloque (a la columna izquierda o a otra pestaña)" draggable="true">⠿</span><span class="bt">${esc(b.dataset.title || '')}</span><button class="op open" title="Abrir este bloque solo, en una pestaña nueva">↗ pestaña</button>`;
+    const inTab = !!b.closest('.tab');   // dentro de una pestaña: la pestaña entera se abre con el botón de la barra, no cada caja
+    bh.innerHTML = `<span class="hd" title="Arrastre para mover este bloque (a la columna izquierda o a otra pestaña)" draggable="true">⠿</span><span class="bt">${esc(b.dataset.title || '')}</span>${inTab ? '' : '<button class="op open" title="Abrir este bloque solo, en una pestaña nueva">↗ pestaña</button>'}`;
     b.prepend(bh);
-    bh.querySelector('.open').onclick = () => window.open(`${location.pathname}?block=${encodeURIComponent(b.dataset.block)}`, '_blank');
+    const ob = bh.querySelector('.open'); if (ob) ob.onclick = () => window.open(`${location.pathname}?block=${encodeURIComponent(b.dataset.block)}`, '_blank');
     const hd = bh.querySelector('.hd');
     hd.ondragstart = e => { e.dataTransfer.setData('text/plain', b.dataset.block); e.dataTransfer.effectAllowed = 'move'; b.classList.add('dragging'); S.drag = b; };
     hd.ondragend = () => { b.classList.remove('dragging'); S.drag = null; $$('.drop-marker').forEach(m => m.remove()); $$('[data-drop].dropping').forEach(c => c.classList.remove('dropping')); };
@@ -753,11 +777,15 @@ function layoutInit() {
   });
   $('#btn-layout-reset').onclick = () => { try { localStorage.removeItem(LAYOUT_KEY); } catch (e) { } location.reload(); };
   layoutApply();
-  // modo «solo»: ?block=id muestra únicamente ese bloque
-  const solo = new URLSearchParams(location.search).get('block');
+  $('#btn-tab-open').onclick = () => { const t = $('.tabs button.on'); if (t) window.open(`${location.pathname}?tab=${t.dataset.tab}`, '_blank'); };
+  // modo «solo»: ?block=id muestra únicamente ese bloque; ?tab=id, una pestaña entera
+  const qs = new URLSearchParams(location.search); const solo = qs.get('block'); const soloTab = qs.get('tab');
   if (solo) {
     const b = document.querySelector(`[data-block="${solo}"]`);
     if (b) { document.body.classList.add('solo'); $('#solo').appendChild(b); document.title = `${b.dataset.title} · Explorador Modbus`; }
+  } else if (soloTab) {
+    const t = document.getElementById(soloTab); const btn = $(`.tabs button[data-tab="${soloTab}"]`);
+    if (t) { document.body.classList.add('solo'); t.classList.add('on'); $('#solo').appendChild(t); document.title = `${btn ? btn.textContent : soloTab} · Explorador Modbus`; if (soloTab === 'tjson') jsonRefresh(); if (soloTab === 'tws') { capRefresh(); capList(); } }
   }
   // sincronía entre pestañas: lo que una hace, las demás lo pintan
   if (BC) {

@@ -25,3 +25,6 @@ docs/latex/capitulos/*.aux
 # Entorno local / datos de contenedores auxiliares
 .vscode/
 scripts/uaexpert/
+
+# Tablero del editor «Modbus server» (cada estudiante crea el suyo)
+modbus/tablero.json

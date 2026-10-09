@@ -145,6 +145,11 @@ pre.term .ok{text-decoration:underline;text-decoration-color:var(--gris-claro);t
 .tabs{display:flex;gap:4px;border-bottom:2px solid var(--ink)}
 .tabs button{flex:1;padding:11px 6px;border:1px solid var(--gris-claro);border-bottom:none;background:var(--suave);color:var(--gris);font-family:var(--sans);font-weight:700;font-size:16.5px;cursor:pointer;border-radius:4px 4px 0 0}
 .tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tabs button.tabopen{flex:0 0 auto;background:#fff;color:var(--ink);border-color:var(--ink);font-size:14.5px;padding:8px 12px}
+.tabs button.tabopen:hover{background:var(--tinte)}
+body.solo #solo .tab{display:flex}
+body.solo #solo .tab{max-width:1600px;margin:0 auto;width:100%}
+body.solo #solo .tab [data-block]{width:100%;max-width:none;margin:0}
 .tab{display:none;flex-direction:column;gap:12px}.tab.on{display:flex}
 .steps{display:flex;flex-direction:column;gap:6px}
 .step{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--gris-claro);border-radius:4px;background:#fff;font-size:15.5px}
@@ -227,3 +232,29 @@ body.solo #solo{display:block}
 body.solo #solo [data-block]{max-width:1600px;margin:0 auto}
 body.solo .bh .op.open{display:none}
 body.solo .bh .hd{display:none}
+
+/* escenario simple por niveles CIM */
+.esc.cim .lvl{stroke-width:2}
+.esc.cim .lvl.l2{fill:#fff;stroke:var(--ink)}
+.esc.cim .lvl.l1{fill:#F7F9FB;stroke:var(--ink)}
+.esc.cim .lvl.l0{fill:var(--tinte);stroke:var(--ink)}
+.esc.cim .ln{font-size:19px;font-weight:800;letter-spacing:.1em;fill:var(--ink)}
+.esc.cim .ls{font-size:15px;fill:var(--cuerpo)}
+.esc.cim .lt{font-family:var(--mono);font-size:15px;fill:var(--rojo);font-weight:600}
+.esc.cim .node.dim .ct{stroke:var(--gris-claro);stroke-dasharray:8 6}
+.esc.cim .node.dim text{fill:var(--gris)}
+.esc.cim .mb{opacity:1;stroke-width:3.5}
+.esc.cim .mb.up{stroke-dasharray:none}
+.esc.cim .mb.dash{stroke-dasharray:10 7;opacity:.7}
+.esc.cim .mb.live{stroke:var(--rojo);marker-end:url(#cr)}
+.esc.cim .rule{font-size:15.5px;font-weight:600;fill:var(--ink)}
+.esc.cim .rule.g{fill:var(--gris);font-weight:400}
+.esc .node.live .ct{stroke:var(--rojo);fill:#fff6f5}
+.esc .node.off .ct{stroke:var(--gris-claro);stroke-dasharray:8 6}
+.esc .node.off text{fill:var(--gris)}
+
+/* tarjetas fantasma: huecos del tablero aún sin definir en el editor */
+.dg g.ghost .card{fill:#fafafa;stroke:var(--gris-claro);stroke-dasharray:8 6}
+.dg g.ghost text{fill:var(--gris-claro)}
+.dg g.ghost .ico{stroke:var(--gris-claro);fill:none}
+.dg g.ghost .gh{font-size:19px;font-weight:600;fill:#c4c4c4}

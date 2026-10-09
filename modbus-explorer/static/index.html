@@ -158,13 +158,22 @@
   </div>
 </section>
 
-<aside class="right">
+<aside class="right" id="right">
+  <div class="rail" id="rail">
+    <button class="rb pin" id="rail-pin" title="Volver a la vista fija de dos columnas">⇤ fijar</button>
+    <button class="rb" data-railtab="tjson">Modbus server</button>
+    <button class="rb" data-railtab="t1a">pymodbus</button>
+    <button class="rb" data-railtab="t1b">OpenPLC</button>
+    <button class="rb" data-railtab="tws">Wireshark</button>
+  </div>
+  <div class="rbody">
   <nav class="tabs">
     <button data-tab="tjson" class="on">Modbus server<small>ESCLAVO · responde</small></button>
     <button data-tab="t1a">pymodbus<small>MAESTRO · pregunta</small></button>
     <button data-tab="t1b">OpenPLC<small>MAESTRO del campo · ESCLAVO :502</small></button>
     <button data-tab="tws">Wireshark<small>OBSERVADOR · captura</small></button>
-    <button class="tabopen" id="btn-tab-open" title="Abrir esta pestaña entera en una pestaña nueva del navegador">↗ pestaña</button>
+    <a class="tabopen" id="btn-tab-open" href="?tab=tjson" target="_blank" rel="noopener" title="Abrir esta pestaña entera en una pestaña nueva del navegador">↗ pestaña</a>
+    <button class="tabopen" id="btn-drawer" title="Convertir estas pestañas en un panel lateral que se oculta solo">⇥ auto</button>
   </nav>
 
   <div class="tab on" id="tjson" data-drop="tjson">
@@ -384,7 +393,8 @@
     </div>
   </div>
 
-  </aside>
+    </div>
+</aside>
 </main>
 <div id="toast" class="toast hidden"></div>
 <script src="app.js"></script>

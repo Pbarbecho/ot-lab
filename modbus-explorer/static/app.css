@@ -286,3 +286,16 @@ body.solo .bh .hd{display:none}
 [data-block].collapsed > :not(.bh){display:none !important}
 [data-block].collapsed{padding-bottom:6px}
 [data-block].collapsed .bh{margin-bottom:0}
+
+/* panel lateral auto-ocultable (modo ⇥ auto) */
+.rail{display:none}
+body.autohide main{grid-template-columns:1fr}
+body.autohide .right{position:fixed;top:0;right:0;height:100vh;width:min(760px,92vw);background:var(--suave);box-shadow:-8px 0 28px rgba(0,0,0,.28);transform:translateX(calc(100% - 52px));transition:transform .25s ease;z-index:40;display:block;overflow:hidden}
+body.autohide .right.open{transform:none}
+body.autohide .rail{display:flex;flex-direction:column;gap:8px;position:absolute;left:0;top:0;bottom:0;width:52px;background:var(--ink);padding:10px 6px;align-items:center}
+body.autohide .rail .rb{writing-mode:vertical-rl;transform:rotate(180deg);border:none;background:transparent;color:#fff;font-family:var(--sans);font-weight:700;font-size:14.5px;letter-spacing:.04em;padding:10px 6px;cursor:pointer;border-radius:4px;white-space:nowrap}
+body.autohide .rail .rb:hover,body.autohide .rail .rb.on{background:var(--rojo)}
+body.autohide .rail .rb.pin{transform:none;writing-mode:horizontal-tb;font-size:12px;background:var(--tarjeta-azul);padding:6px 4px;width:100%}
+body.autohide .rbody{position:absolute;left:52px;right:0;top:0;bottom:0;overflow:auto;padding:12px 14px 40px;display:flex;flex-direction:column;gap:12px}
+body.autohide #btn-drawer{display:none}
+body:not(.autohide) .rbody{display:contents}

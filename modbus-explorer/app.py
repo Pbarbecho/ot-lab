@@ -55,6 +55,15 @@ EXC_NAMES = {1: "Illegal Function", 2: "Illegal Data Address", 3: "Illegal Data 
 app = FastAPI(title="Explorador Modbus TCP · ot-lab")
 
 
+@app.middleware("http")
+async def no_cache_static(request, call_next):
+    """Las páginas y scripts cambian con cada git pull: que el navegador no se quede con la versión vieja."""
+    resp = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
+
+
 # ---------------------------------------------------------------- cliente Modbus con traza de tramas
 class Session:
     """Un único cliente pymodbus vivo (como la sesión interactiva de las láminas 22 y 29)."""

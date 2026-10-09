@@ -571,7 +571,7 @@ function init() {
   ts.onchange = () => { S.tablero = ts.value; buildTablero(); bcast({ type: 'tablero', ed: {}, tablero: ts.value }); };
   edInit(); escInit(); layoutInit();
   buildTablero(); renderSteps('#steps-1b', STEPS_1B);
-  $$('.tabs button').forEach(b => b.onclick = () => { $$('.tabs button').forEach(x => x.classList.toggle('on', x === b)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === b.dataset.tab)); if (b.dataset.tab === 'tjson') jsonRefresh(); if (b.dataset.tab === 'tws') { capRefresh(); capList(); } if (b.dataset.tab === 't1b') plcRefresh(); });
+  $$('.tabs button[data-tab]').forEach(b => b.onclick = () => { $$('.tabs button[data-tab]').forEach(x => x.classList.toggle('on', x === b)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === b.dataset.tab)); if (b.dataset.tab === 'tjson') jsonRefresh(); if (b.dataset.tab === 'tws') { capRefresh(); capList(); } if (b.dataset.tab === 't1b') plcRefresh(); });
   $('#btn-connect').onclick = () => connectTo(currentTarget());
   $('#btn-disconnect').onclick = async () => { try { await api('/api/disconnect', {}); } catch (e) { } S.session = { connected: false }; setChipSession(); if (S.poll) togglePoll(); $('#pyline').innerHTML = '&gt;&gt;&gt; c.close()'; };
   $('#btn-read').onclick = e => runOp({ read: $('input[name=rt]:checked').value, addr: +$('#r-addr').value, count: +$('#r-count').value }, e.target);
@@ -845,7 +845,7 @@ function layoutInit() {
     };
   });
   // soltar sobre una pestaña: la activa para poder dejar el bloque dentro
-  $$('.tabs button').forEach(t => {
+  $$('.tabs button[data-tab]').forEach(t => {
     t.ondragenter = e => { if (!S.drag) return; e.preventDefault(); t.classList.add('droptarget'); t.click(); };
     t.ondragover = e => { if (S.drag) e.preventDefault(); };
     t.ondragleave = () => t.classList.remove('droptarget');
@@ -853,7 +853,9 @@ function layoutInit() {
   });
   $('#btn-layout-reset').onclick = () => { try { localStorage.removeItem(LAYOUT_KEY); localStorage.removeItem('explorer-collapsed'); } catch (e) { } location.reload(); };
   layoutApply();
-  $('#btn-tab-open').onclick = () => { const t = $('.tabs button.on'); if (t) window.open(`${location.pathname}?tab=${t.dataset.tab}`, '_blank'); };
+  const syncTabLink = () => { const t = $('.tabs button.on'); if (t) $('#btn-tab-open').href = `${location.pathname}?tab=${t.dataset.tab}`; };
+  syncTabLink(); $$('.tabs button[data-tab]').forEach(b => b.addEventListener('click', syncTabLink));
+  drawerInit();
   // modo «solo»: ?block=id muestra únicamente ese bloque; ?tab=id, una pestaña entera
   const qs = new URLSearchParams(location.search); const solo = qs.get('block'); const soloTab = qs.get('tab');
   if (solo) {
@@ -881,4 +883,23 @@ async function offsetCheck() {
   const n = $('#offset-note'); if (!n) return;
   try { const j = await api('/api/modbus-server/offset-check'); n.className = 'banner' + (j.ok ? ' ok' : ''); n.querySelector('span').textContent = j.text; }
   catch (e) { n.querySelector('span').textContent = e.message; }
+}
+
+
+/* ------------------------------------------------------------------ panel lateral auto-ocultable */
+function drawerInit() {
+  const KEY = 'explorer-autohide'; const right = $('#right'); let auto = false, timer = null;
+  try { auto = localStorage.getItem(KEY) === '1'; } catch (e) { }
+  const apply = () => { document.body.classList.toggle('autohide', auto); right.classList.remove('open'); try { localStorage.setItem(KEY, auto ? '1' : '0'); } catch (e) { } };
+  const open = () => { clearTimeout(timer); right.classList.add('open'); };
+  const close = (ms) => { clearTimeout(timer); timer = setTimeout(() => right.classList.remove('open'), ms == null ? 700 : ms); };
+  $('#btn-drawer').onclick = () => { auto = true; apply(); };
+  $('#rail-pin').onclick = () => { auto = false; apply(); };
+  $$('#rail [data-railtab]').forEach(b => b.onclick = () => { const t = $(`.tabs button[data-tab="${b.dataset.railtab}"]`); if (t) t.click(); $$('#rail [data-railtab]').forEach(x => x.classList.toggle('on', x === b)); open(); });
+  right.addEventListener('mouseenter', () => { if (auto) open(); });
+  right.addEventListener('mouseleave', () => { if (auto) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && auto) close(0); });
+  // al activar una pestaña desde la barra normal, marcar también el riel
+  $$('.tabs button[data-tab]').forEach(t => t.addEventListener('click', () => $$('#rail [data-railtab]').forEach(x => x.classList.toggle('on', x.dataset.railtab === t.dataset.tab))));
+  apply();
 }

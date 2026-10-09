@@ -281,3 +281,8 @@ body.solo .bh .hd{display:none}
 .tabla .tr-r{background:var(--gris)}
 .tabla tr.r td{background:#F6F6F6}
 .tabla tr.q td{border-top:2px solid var(--borde)}
+
+/* bloque plegado: solo la barra */
+[data-block].collapsed > :not(.bh){display:none !important}
+[data-block].collapsed{padding-bottom:6px}
+[data-block].collapsed .bh{margin-bottom:0}

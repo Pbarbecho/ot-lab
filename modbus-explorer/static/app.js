@@ -812,8 +812,16 @@ function layoutInit() {
   $$('[data-block]').forEach(b => {
     const bh = document.createElement('div'); bh.className = 'bh';
     const inTab = !!b.closest('.tab');   // dentro de una pestaña: la pestaña entera se abre con el botón de la barra, no cada caja
-    bh.innerHTML = `<span class="hd" title="Arrastre para mover este bloque (a la columna izquierda o a otra pestaña)" draggable="true">⠿</span><span class="bt">${esc(b.dataset.title || '')}</span>${inTab ? '' : '<button class="op open" title="Abrir este bloque solo, en una pestaña nueva">↗ pestaña</button>'}`;
+    bh.innerHTML = `<span class="hd" title="Arrastre para mover este bloque (a la columna izquierda o a otra pestaña)" draggable="true">⠿</span><span class="bt">${esc(b.dataset.title || '')}</span><button class="op col" title="Ocultar o mostrar el contenido de este bloque">Ocultar</button>${inTab ? '' : '<button class="op open" title="Abrir este bloque solo, en una pestaña nueva">↗ pestaña</button>'}`;
     b.prepend(bh);
+    const colBtn = bh.querySelector('.col');
+    const setCol = (on) => { b.classList.toggle('collapsed', on); colBtn.textContent = on ? 'Mostrar' : 'Ocultar'; };
+    let collapsed = []; try { collapsed = JSON.parse(localStorage.getItem('explorer-collapsed') || '[]'); } catch (e) { }
+    setCol(collapsed.includes(b.dataset.block));
+    colBtn.onclick = () => {
+      const on = !b.classList.contains('collapsed'); setCol(on);
+      try { let c = JSON.parse(localStorage.getItem('explorer-collapsed') || '[]'); c = on ? [...new Set([...c, b.dataset.block])] : c.filter(x => x !== b.dataset.block); localStorage.setItem('explorer-collapsed', JSON.stringify(c)); } catch (e) { }
+    };
     const ob = bh.querySelector('.open'); if (ob) ob.onclick = () => window.open(`${location.pathname}?block=${encodeURIComponent(b.dataset.block)}`, '_blank');
     const hd = bh.querySelector('.hd');
     hd.ondragstart = e => { e.dataTransfer.setData('text/plain', b.dataset.block); e.dataTransfer.effectAllowed = 'move'; b.classList.add('dragging'); S.drag = b; };
@@ -843,7 +851,7 @@ function layoutInit() {
     t.ondragleave = () => t.classList.remove('droptarget');
     t.ondrop = e => { e.preventDefault(); t.classList.remove('droptarget'); const c = document.getElementById(t.dataset.tab); if (c && S.drag) { c.appendChild(S.drag); layoutSave(); } };
   });
-  $('#btn-layout-reset').onclick = () => { try { localStorage.removeItem(LAYOUT_KEY); } catch (e) { } location.reload(); };
+  $('#btn-layout-reset').onclick = () => { try { localStorage.removeItem(LAYOUT_KEY); localStorage.removeItem('explorer-collapsed'); } catch (e) { } location.reload(); };
   layoutApply();
   $('#btn-tab-open').onclick = () => { const t = $('.tabs button.on'); if (t) window.open(`${location.pathname}?tab=${t.dataset.tab}`, '_blank'); };
   // modo «solo»: ?block=id muestra únicamente ese bloque; ?tab=id, una pestaña entera

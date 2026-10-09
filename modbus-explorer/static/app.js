@@ -14,18 +14,18 @@ const FC_WRITE = new Set([5, 6, 15, 16]);
 const dec = (v, d = 1) => (v / 10).toFixed(d).replace('.', ',');
 const i16 = v => (v > 32767 ? v - 65536 : v);
 const FORMATS = {
-  bool_onoff:   { label: 'bit · encendido/apagado', bits: true, format: 'bool_onoff' },
-  bool_pressed: { label: 'bit · pulsado',           bits: true, format: 'bool_pressed' },
-  bool_open:    { label: 'bit · abierta/cerrada',   bits: true, format: 'bool_open' },
-  bool_run:     { label: 'bit · marcha/parada',     bits: true, format: 'bool_run' },
-  bool_alarm:   { label: 'bit · sonando',           bits: true, format: 'bool_alarm' },
+  bool_onoff:   { label: 'bit · encendido/apagado', bits: true, fmt: b => b ? '1 encendido' : '0 apagado' },
+  bool_pressed: { label: 'bit · pulsado',           bits: true, fmt: b => b ? '1 pulsado' : '0' },
+  bool_open:    { label: 'bit · abierta/cerrada',   bits: true, fmt: b => b ? '1 abierta' : '0 cerrada' },
+  bool_run:     { label: 'bit · marcha/parada',     bits: true, fmt: b => b ? '1 marcha' : '0 parada' },
+  bool_alarm:   { label: 'bit · sonando',           bits: true, fmt: b => b ? '1 sonando' : '0' },
   int:   { label: 'entero 0–65535', fmt: v => `${v}` },
-  x10c:  { label: '×10 · °C',       format: 'x10c' },
-  x10pct:{ label: '×10 · %',        format: 'x10pct' },
-  ppm:   { label: 'ppm',            format: 'ppm' },
-  hpa:   { label: 'hPa',            format: 'hpa' },
-  pct:   { label: '%',              format: 'pct' },
-  modo:  { label: '0 manual / 1 auto', format: 'modo' },
+  x10c:  { label: '×10 · °C',       fmt: v => `${v} = ${dec(v)}°C` },
+  x10pct:{ label: '×10 · %',        fmt: v => `${v} = ${dec(v)} %` },
+  ppm:   { label: 'ppm',            fmt: v => `${v} ppm` },
+  hpa:   { label: 'hPa',            fmt: v => `${v} hPa` },
+  pct:   { label: '%',              fmt: v => `${v} %` },
+  modo:  { label: '0 manual / 1 auto', fmt: v => `${v} ${v ? '(auto)' : '(manual)'}` },
   rpm:   { label: 'rpm',            fmt: v => `${v} rpm` },
   lpm:   { label: 'L/min',          fmt: v => `${v} L/min` },
 };
@@ -330,6 +330,7 @@ async function runOp(op, btn) {
     }
     animate(res.fc, addr, count, res.ok);
     escPacket();
+    bcast({ type: 'op', res, addr, count, vals: S.vals });
     return res;
   } catch (e) { toast(e.message, true); if (/sesión/i.test(e.message)) { S.session.connected = false; setChipSession(); } return null; }
   finally { busy(btn, false); }
@@ -369,7 +370,7 @@ async function connectTo(t) {
   try {
     if (t.id) $('#target').value = t.id; $('#custom-row').classList.toggle('hidden', $('#target').value !== 'custom');
     const r = await api('/api/connect', { host: t.host, port: t.port, unit: t.unit || +$('#unit').value });
-    S.session = r; setChipSession();
+    S.session = r; setChipSession(); bcast({ type: 'session', session: r });
     $('#pyline').innerHTML = `&gt;&gt;&gt; from pymodbus.client import ModbusTcpClient\n&gt;&gt;&gt; ${esc(r.pymodbus)}\n<span class="c"># True · sesión abierta: un único socket TCP para todas las peticiones</span>`;
     toast(`Conectado a ${r.host}:${r.port}`);
   } catch (e) { S.session = { connected: false }; setChipSession(); toast(e.message, true); }
@@ -414,7 +415,7 @@ async function capList() {
 }
 
 /* ------------------------------------------------------------------ OpenPLC */
-function plcChip(st) { S.plcStatus = st; escUpdate(); const c = $('#chip-plc'); c.textContent = 'OpenPLC · ' + (st || '?'); c.className = 'chip' + (st === 'Running' ? ' ok' : (st === 'Stopped' ? ' bad' : '')); }
+function plcChip(st) { if (S.plcStatus !== st) bcast({ type: 'plc', status: st }); S.plcStatus = st; escUpdate(); const c = $('#chip-plc'); c.textContent = 'OpenPLC · ' + (st || '?'); c.className = 'chip' + (st === 'Running' ? ' ok' : (st === 'Stopped' ? ' bad' : '')); }
 async function plcRefresh() {
   try {
     const j = await api('/api/openplc/status');
@@ -489,8 +490,8 @@ function tableroOptions() {
 function init() {
   TABLEROS.custom = customTablero();
   const ts = $('#tablero'); tableroOptions();
-  ts.onchange = () => { S.tablero = ts.value; buildTablero(); };
-  edInit(); escInit();
+  ts.onchange = () => { S.tablero = ts.value; buildTablero(); bcast({ type: 'tablero', ed: {}, tablero: ts.value }); };
+  edInit(); escInit(); layoutInit();
   buildTablero(); renderSteps('#steps-1b', STEPS_1B);
   $$('.tabs button').forEach(b => b.onclick = () => { $$('.tabs button').forEach(x => x.classList.toggle('on', x === b)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === b.dataset.tab)); if (b.dataset.tab === 'tjson') jsonRefresh(); if (b.dataset.tab === 'tws') { capRefresh(); capList(); } if (b.dataset.tab === 't1b') plcRefresh(); });
   $('#btn-connect').onclick = () => connectTo(currentTarget());
@@ -593,8 +594,8 @@ function edRender() {
   if (!ED.outputs.length) b.innerHTML = '<span class="gr">sin salidas · use los botones +</span>';
   $('#ed-title').value = ED.title; $('#ed-left').value = ED.left; $('#ed-right').value = ED.right; $('#ed-log').value = ED.logLevel; $('#ed-init').checked = ED.init;
 }
-function edChanged(rerender = true) {
-  ED.dirty = true; $('#ed-status').textContent = 'cambios sin guardar';
+function edChanged(rerender = true, fromPeer = false) {
+  ED.dirty = true; if (!fromPeer) bcast({ type: 'tablero', ed: { title: ED.title, left: ED.left, right: ED.right, inputs: ED.inputs, outputs: ED.outputs, init: ED.init }, tablero: 'custom' }); $('#ed-status').textContent = 'cambios sin guardar';
   TABLEROS.custom = customTablero(); tableroOptions();
   if (rerender) edRender();
   if (S.tablero !== 'custom') { S.tablero = 'custom'; $('#tablero').value = 'custom'; }
@@ -696,3 +697,78 @@ function escInit() {
   $('#btn-esc').onclick = () => { hidden = !hidden; try { localStorage.setItem(key, hidden ? '1' : '0'); } catch (e) { } apply(); };
   apply(); escUpdate();
 }
+
+
+/* ------------------------------------------------------------------ disposición: bloques movibles y en pestaña nueva */
+const LAYOUT_KEY = 'explorer-layout-v1';
+const BC = ('BroadcastChannel' in window) ? new BroadcastChannel('modbus-explorer') : null;
+const TAB_ID = Math.random().toString(36).slice(2);
+function layoutSave() {
+  const lay = {};
+  $$('[data-drop]').forEach(c => { lay[c.dataset.drop] = $$in(':scope > [data-block]', c).map(b => b.dataset.block); });
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(lay)); } catch (e) { }
+}
+function $$in(sel, root) { return Array.from(root.querySelectorAll(sel)); }
+function layoutApply() {
+  let lay = null; try { lay = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) { }
+  if (!lay) return;
+  for (const [cid, ids] of Object.entries(lay)) {
+    const c = document.querySelector(`[data-drop="${cid}"]`); if (!c) continue;
+    ids.forEach(id => { const b = document.querySelector(`[data-block="${id}"]`); if (b) c.appendChild(b); });
+  }
+}
+function layoutInit() {
+  $$('[data-block]').forEach(b => {
+    const bh = document.createElement('div'); bh.className = 'bh';
+    bh.innerHTML = `<span class="hd" title="Arrastre para mover este bloque (a la columna izquierda o a otra pestaña)" draggable="true">⠿</span><span class="bt">${esc(b.dataset.title || '')}</span><button class="op open" title="Abrir este bloque solo, en una pestaña nueva">↗ pestaña</button>`;
+    b.prepend(bh);
+    bh.querySelector('.open').onclick = () => window.open(`${location.pathname}?block=${encodeURIComponent(b.dataset.block)}`, '_blank');
+    const hd = bh.querySelector('.hd');
+    hd.ondragstart = e => { e.dataTransfer.setData('text/plain', b.dataset.block); e.dataTransfer.effectAllowed = 'move'; b.classList.add('dragging'); S.drag = b; };
+    hd.ondragend = () => { b.classList.remove('dragging'); S.drag = null; $$('.drop-marker').forEach(m => m.remove()); $$('[data-drop].dropping').forEach(c => c.classList.remove('dropping')); };
+  });
+  $$('[data-drop]').forEach(c => {
+    c.ondragover = e => {
+      if (!S.drag) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; c.classList.add('dropping');
+      $$('.drop-marker').forEach(m => m.remove());
+      const blocks = $$in(':scope > [data-block]', c).filter(x => x !== S.drag);
+      const after = blocks.find(x => e.clientY < x.getBoundingClientRect().top + x.getBoundingClientRect().height / 2);
+      const m = document.createElement('div'); m.className = 'drop-marker';
+      if (after) c.insertBefore(m, after); else c.appendChild(m);
+    };
+    c.ondragleave = e => { if (!c.contains(e.relatedTarget)) c.classList.remove('dropping'); };
+    c.ondrop = e => {
+      e.preventDefault(); if (!S.drag) return;
+      const m = c.querySelector(':scope > .drop-marker');
+      if (m) { c.insertBefore(S.drag, m); m.remove(); } else c.appendChild(S.drag);
+      c.classList.remove('dropping'); layoutSave();
+    };
+  });
+  // soltar sobre una pestaña: la activa para poder dejar el bloque dentro
+  $$('.tabs button').forEach(t => {
+    t.ondragenter = e => { if (!S.drag) return; e.preventDefault(); t.classList.add('droptarget'); t.click(); };
+    t.ondragover = e => { if (S.drag) e.preventDefault(); };
+    t.ondragleave = () => t.classList.remove('droptarget');
+    t.ondrop = e => { e.preventDefault(); t.classList.remove('droptarget'); const c = document.getElementById(t.dataset.tab); if (c && S.drag) { c.appendChild(S.drag); layoutSave(); } };
+  });
+  $('#btn-layout-reset').onclick = () => { try { localStorage.removeItem(LAYOUT_KEY); } catch (e) { } location.reload(); };
+  layoutApply();
+  // modo «solo»: ?block=id muestra únicamente ese bloque
+  const solo = new URLSearchParams(location.search).get('block');
+  if (solo) {
+    const b = document.querySelector(`[data-block="${solo}"]`);
+    if (b) { document.body.classList.add('solo'); $('#solo').appendChild(b); document.title = `${b.dataset.title} · Explorador Modbus`; }
+  }
+  // sincronía entre pestañas: lo que una hace, las demás lo pintan
+  if (BC) {
+    BC.onmessage = ev => {
+      const m = ev.data; if (!m || m.from === TAB_ID) return;
+      if (m.type === 'op') { showOp(m.res); logOp(m.res, m.addr); if (m.vals) S.vals = m.vals; animate(m.res.fc, m.addr, m.count, m.res.ok); escPacket(); }
+      if (m.type === 'session') { S.session = m.session; setChipSession(); }
+      if (m.type === 'plc') { plcChip(m.status); }
+      if (m.type === 'cap') { capRender(m.cap); }
+      if (m.type === 'tablero') { if (m.ed && m.ed.inputs) Object.assign(ED, m.ed); TABLEROS.custom = customTablero(); tableroOptions(); if ($('#ed-inputs')) edRender(); S.tablero = m.tablero; $('#tablero').value = m.tablero; const keep = S.vals; buildTablero(); S.vals = keep; S.items.forEach(it => refreshCard(it)); }
+    };
+  }
+}
+function bcast(msg) { if (BC) BC.postMessage({ from: TAB_ID, ...msg }); }

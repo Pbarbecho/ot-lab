@@ -20,13 +20,15 @@
     <span class="chip" id="chip-session">sin sesión</span>
     <span class="chip" id="chip-plc">OpenPLC ?</span>
     <span class="chip" id="chip-capture">sin captura</span>
+    <button class="chip btnchip" id="btn-layout-reset" title="Vuelve a colocar todos los bloques en su sitio">⟲ disposición</button>
   </div>
   <img class="banda" src="marca/banda_modulos_oscuro.png" alt="">
 </header>
 
-<main>
-<section class="left">
-  <div class="panel" id="esc-panel">
+<div id="solo"></div>
+<main id="main">
+<section class="left" id="left" data-drop="left">
+  <div class="panel" id="esc-panel" data-block="esc" data-title="Escenario">
     <div class="lbl row"><span>Escenario · qué hay y dónde vive (lámina 18)</span><span class="sp"></span><span id="esc-meta" class="mono gr"></span><button class="btn mini gris" id="btn-esc">Ocultar</button></div>
     <svg id="esc" viewBox="0 0 1240 560" class="esc" aria-label="Escenario: laptop, red Docker ot-lab y contenedores">
       <defs>
@@ -75,7 +77,7 @@
     </svg>
     <div class="legend"><span><i class="sw azul"></i>Modbus TCP</span><span><i class="sw gris"></i>puertos publicados · bind mounts · HTTP</span><span class="gr">los enlaces se iluminan con lo que está ocurriendo: sesión pymodbus, sondeo del PLC, captura</span></div>
   </div>
-  <div class="panel">
+  <div class="panel" data-block="tablero" data-title="Tablero">
     <div class="lbl row">
       <span>Tablero ·</span>
       <select id="tablero"></select>
@@ -98,7 +100,7 @@
     </div>
   </div>
 
-  <div class="panel" id="frames-panel">
+  <div class="panel" id="frames-panel" data-block="frames" data-title="Última operación · tramas">
     <div class="lbl row"><span>Última operación · tramas reales (MBAP + PDU)</span><span class="sp"></span><span id="op-meta" class="mono gr"></span></div>
     <pre class="code term" id="pyline">&gt;&gt;&gt; <span class="c"># conecte y ejecute una operación: aquí verá la línea pymodbus equivalente</span></pre>
     <div id="op-banner" class="banner hidden"></div>
@@ -108,7 +110,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-block="log" data-title="Tabla a entregar">
     <div class="lbl row"><span>Tabla a entregar · una fila por petición</span><span class="sp"></span>
       <button class="btn mini" id="btn-csv">Exportar CSV</button><button class="btn mini gris" id="btn-clear">Vaciar</button></div>
     <div class="tscroll"><table class="tabla" id="log">
@@ -120,14 +122,14 @@
 
 <aside class="right">
   <nav class="tabs">
-    <button data-tab="t1a" class="on">1a · pymodbus</button>
-    <button data-tab="t1b">1b · OpenPLC</button>
+    <button data-tab="t1a" class="on">pymodbus</button>
+    <button data-tab="t1b">OpenPLC</button>
     <button data-tab="tws">Wireshark</button>
     <button data-tab="tjson">Modbus server</button>
   </nav>
 
-  <div class="tab on" id="t1a">
-    <div class="box">
+  <div class="tab on" id="t1a" data-drop="t1a">
+    <div class="box" data-block="s-session" data-title="Sesión">
       <h3>1 · Sesión · <code>ModbusTcpClient</code></h3>
       <div class="frow">
         <select id="target"></select>
@@ -144,7 +146,7 @@
       <p class="note" id="target-note"></p>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="s-read" data-title="Leer">
       <h3>2 · Leer · FC 01 · 02 · 03 · 04</h3>
       <div class="frow wrap fcs" id="read-fc">
         <label><input type="radio" name="rt" value="coils"> <b>01</b> coils</label>
@@ -159,7 +161,7 @@
       </div>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="s-write" data-title="Escribir">
       <h3>3 · Escribir · FC 05 · 06 · 15 · 16</h3>
       <div class="frow wrap fcs" id="write-fc">
         <label><input type="radio" name="wt" value="coil"> <b>05</b> un coil</label>
@@ -175,12 +177,12 @@
       <p class="note">Bits: <code>T</code>/<code>F</code>, <code>1</code>/<code>0</code>. Varios valores separados por coma. Pruebe <code>70000</code> o <code>-5</code> y mire quién se queja.</p>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="s-steps" data-title="Reto de la lámina">
       <h3>4 · Reto de la lámina · pasos</h3>
       <div class="steps" id="steps"></div>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="s-poll" data-title="Sondeo continuo">
       <h3>5 · Sondeo continuo · como el runtime de OpenPLC</h3>
       <div class="frow">
         <label>cada <select id="poll-ms"><option value="100">100 ms</option><option value="250">250 ms</option><option value="500" selected>500 ms</option><option value="1000">1 s</option><option value="2000">2 s</option></select></label>
@@ -191,8 +193,8 @@
     </div>
   </div>
 
-  <div class="tab" id="t1b">
-    <div class="box">
+  <div class="tab" id="t1b" data-drop="t1b">
+    <div class="box" data-block="plc-status" data-title="OpenPLC · runtime">
       <h3>OpenPLC · estado del runtime</h3>
       <div class="frow">
         <span id="plc-status" class="mono gr">consultando…</span><span class="sp"></span>
@@ -207,7 +209,7 @@
       <p class="note">Usuario <code>openplc</code> / <code>openplc</code>. Esta web habla con el panel por dentro de la red Docker (<code>172.28.0.10:8080</code>) y hace por usted los clics de las láminas 33–35.</p>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="plc-program" data-title="Autoprogramación">
       <h3>Autoprogramación · subir, compilar y arrancar el programa</h3>
       <div class="frow">
         <label>Plantilla <select id="plc-prog"></select></label>
@@ -223,7 +225,7 @@
       <pre class="code term small hidden" id="plc-log"></pre>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="plc-devices" data-title="Slave Devices">
       <h3>Slave Devices · el PLC como maestro del simulador</h3>
       <table class="tabla small" id="plc-devices"><thead><tr><th>Nombre</th><th>Tipo</th><th>DI</th><th>Coils</th><th>IR</th><th>HR</th><th></th></tr></thead><tbody></tbody></table>
       <details class="dev">
@@ -246,7 +248,7 @@
       </details>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="plc-monitor" data-title="Monitoring">
       <h3>Monitoring · dentro de esta web</h3>
       <div class="frow">
         <button class="btn" id="btn-mon-toggle">▶ Iniciar monitoreo</button>
@@ -262,7 +264,7 @@
       </details>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="plc-read" data-title="Esclavo interno de OpenPLC">
       <h3>Leer el esclavo interno de OpenPLC desde pymodbus</h3>
       <table class="tabla small">
         <tr><th>Variable</th><th>Tabla · FC</th><th>Dirección pymodbus</th></tr>
@@ -276,8 +278,8 @@
     </div>
   </div>
 
-  <div class="tab" id="tws">
-    <div class="box">
+  <div class="tab" id="tws" data-drop="tws">
+    <div class="box" data-block="ws-capture" data-title="Captura · Wireshark">
       <h3>Captura dentro del laboratorio · tcpdump en <code>modbus-explorer</code></h3>
       <div class="frow">
         <button class="btn" id="btn-cap-start">● Iniciar captura</button>
@@ -292,7 +294,7 @@
       <div class="lbl">Capturas guardadas</div>
       <ul class="files" id="cap-files"></ul>
     </div>
-    <div class="box">
+    <div class="box" data-block="ws-live" data-title="Wireshark en vivo">
       <h3>Wireshark en vivo en su PC · lámina 25</h3>
       <p class="note">Un contenedor no puede abrir ventanas en su laptop: copie la línea y péguela en una terminal dentro de la carpeta <code>ot-lab</code>. Wireshark se abre ya capturando todo lo que llega al simulador (incluido el sondeo de OpenPLC).</p>
       <pre class="code small" id="cmd-live">docker run --rm --net container:modbus-sim nicolaka/netshoot \
@@ -304,8 +306,8 @@
     </div>
   </div>
 
-  <div class="tab" id="tjson">
-    <div class="box">
+  <div class="tab" id="tjson" data-drop="tjson">
+    <div class="box" data-block="ms-editor" data-title="Modbus server · editor">
       <h3>Modbus server · <code>modbus-sim</code> · editor del tablero</h3>
       <div class="frow wrap">
         <label>Título <input id="ed-title" value="Mi tablero" class="w190"></label>
@@ -335,7 +337,7 @@
         <span class="sp"></span><span id="ed-status" class="mono gr"></span>
       </div>
     </div>
-    <div class="box">
+    <div class="box" data-block="ms-json" data-title="registers generado">
       <h3>«registers» generado · lo que carga el esclavo</h3>
       <pre class="code small" id="json-snippet"></pre>
       <div class="frow"><button class="btn mini" data-copy="json-snippet">Copiar</button><span class="sp"></span><span id="json-meta" class="mono gr">—</span><button class="btn mini gris" id="btn-json">Releer archivo</button></div>

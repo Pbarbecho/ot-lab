@@ -154,6 +154,8 @@ pre.term .ok{text-decoration:underline;text-decoration-color:var(--gris-claro);t
 .tabs{display:flex;gap:4px;border-bottom:2px solid var(--ink)}
 .tabs button{flex:1;padding:11px 6px;border:1px solid var(--gris-claro);border-bottom:none;background:var(--suave);color:var(--gris);font-family:var(--sans);font-weight:700;font-size:16.5px;cursor:pointer;border-radius:4px 4px 0 0}
 .tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tabs button small{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--rojo);margin-top:2px;white-space:nowrap}
+.tabs button.on small{color:var(--salmon)}
 .tabs button.tabopen{flex:0 0 auto;background:#fff;color:var(--ink);border-color:var(--ink);font-size:14.5px;padding:8px 12px}
 .tabs button.tabopen:hover{background:var(--tinte)}
 body.solo #solo .tab{display:flex}

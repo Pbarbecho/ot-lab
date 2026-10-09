@@ -853,7 +853,7 @@ function layoutInit() {
     if (b) { document.body.classList.add('solo'); $('#solo').appendChild(b); document.title = `${b.dataset.title} · Explorador Modbus`; }
   } else if (soloTab) {
     const t = document.getElementById(soloTab); const btn = $(`.tabs button[data-tab="${soloTab}"]`);
-    if (t) { document.body.classList.add('solo'); t.classList.add('on'); $('#solo').appendChild(t); document.title = `${btn ? btn.textContent : soloTab} · Explorador Modbus`; if (soloTab === 'tjson') jsonRefresh(); if (soloTab === 'tws') { capRefresh(); capList(); } }
+    if (t) { document.body.classList.add('solo'); t.classList.add('on'); $('#solo').appendChild(t); document.title = `${btn ? btn.firstChild.textContent : soloTab} · Explorador Modbus`; if (soloTab === 'tjson') jsonRefresh(); if (soloTab === 'tws') { capRefresh(); capList(); } }
   }
   // sincronía entre pestañas: lo que una hace, las demás lo pintan
   if (BC) {

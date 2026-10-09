@@ -380,7 +380,7 @@ function setChipSession() {
   const c = $('#chip-session'); const s = S.session;
   const who = { '172.28.0.30': 'Modbus server', '172.28.0.10': 'OpenPLC', '172.28.0.90': 'Conpot' }[s.host] || `${s.host}:${s.port}`;
   c.textContent = s.connected ? `${who} · Conectado · ${s.unit}` : 'Modbus Server';
-  c.className = 'chip' + (s.connected ? ' ok' : ''); updatePlcSub();
+  c.className = 'chip' + (s.connected ? ' ok live' : ''); updatePlcSub();
 }
 function currentTarget() {
   const v = $('#target').value;
@@ -423,7 +423,7 @@ function capRender(c) {
   S.capRunning = !!c.running; escUpdate();
   const chip = $('#chip-capture');
   chip.textContent = c.running ? `● capturando ${c.seconds}s · ${c.bytes} B` : (c.file ? `captura ${c.file}` : 'sin captura');
-  chip.className = 'chip' + (c.running ? ' bad' : (c.file ? ' ok' : ''));
+  chip.className = 'chip' + (c.running ? ' bad rec' : (c.file ? ' ok' : ''));
   $('#cap-status').textContent = c.running ? `tcpdump activo · ${c.file} · ${c.bytes} bytes` : (c.file ? `detenida · ${c.file} · ${c.bytes} bytes` : (c.tcpdump ? 'lista para capturar' : 'tcpdump no disponible'));
   const ready = !c.running && c.file && c.bytes > 24;
   $('#cap-ready').classList.toggle('hidden', !ready);
@@ -436,7 +436,7 @@ async function capList() {
 }
 
 /* ------------------------------------------------------------------ OpenPLC */
-function plcChip(st) { if (S.plcStatus !== st) bcast({ type: 'plc', status: st }); S.plcStatus = st; escUpdate(); const c = $('#chip-plc'); c.textContent = 'OpenPLC · ' + (st || '?'); c.className = 'chip' + (st === 'Running' ? ' ok' : (st === 'Stopped' ? ' bad' : '')); }
+function plcChip(st) { if (S.plcStatus !== st) bcast({ type: 'plc', status: st }); S.plcStatus = st; escUpdate(); const c = $('#chip-plc'); c.textContent = 'OpenPLC · ' + (st || '?'); c.className = 'chip' + (st === 'Running' ? ' ok live' : (st === 'Stopped' ? ' bad' : '')); }
 async function plcRefresh() {
   try {
     const j = await api('/api/openplc/status');

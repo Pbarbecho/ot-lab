@@ -378,7 +378,8 @@ function targetById(id) { return S.targets.find(t => t.id === id); }
 function setChipSession() {
   escUpdate();
   const c = $('#chip-session'); const s = S.session;
-  c.textContent = s.connected ? `conectado · ${s.host}:${s.port} · unit ${s.unit}` : 'Modbus Server';
+  const who = { '172.28.0.30': 'Modbus server', '172.28.0.10': 'OpenPLC', '172.28.0.90': 'Conpot' }[s.host] || `${s.host}:${s.port}`;
+  c.textContent = s.connected ? `${who} · Conectado · ${s.unit}` : 'Modbus Server';
   c.className = 'chip' + (s.connected ? ' ok' : ''); updatePlcSub();
 }
 function currentTarget() {

@@ -372,7 +372,7 @@ function targetById(id) { return S.targets.find(t => t.id === id); }
 function setChipSession() {
   escUpdate();
   const c = $('#chip-session'); const s = S.session;
-  c.textContent = s.connected ? `conectado · ${s.host}:${s.port} · unit ${s.unit}` : 'sin sesión Modbus';
+  c.textContent = s.connected ? `conectado · ${s.host}:${s.port} · unit ${s.unit}` : 'Modbus Server';
   c.className = 'chip' + (s.connected ? ' ok' : ''); updatePlcSub();
 }
 function currentTarget() {

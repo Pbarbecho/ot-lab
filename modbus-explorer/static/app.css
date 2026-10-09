@@ -21,13 +21,15 @@ header .banda{position:absolute;right:0;bottom:0;height:30px;opacity:.55;pointer
 @media (min-width:1300px){.chips{margin-right:120px}}
 .chip{display:inline-block;padding:5px 13px;border-radius:999px;background:var(--tarjeta-azul);color:#fff;font-family:var(--mono);font-size:14px;font-weight:500;border:1px solid rgba(255,255,255,.25)}
 .chip.ok{background:var(--gris-claro);color:var(--ink);border-color:var(--gris-claro)}
+.chip.live{background:#2E9E4F;color:#fff;border-color:#2E9E4F}
+.chip.live::before{background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 0 8px #fff}
 .chip.bad{background:var(--rojo);border-color:var(--rojo)}
 .chip.link{text-decoration:none}
 .chip::before{content:'';display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--gris-claro);margin-right:8px;vertical-align:-1px;opacity:.55}
 .chip.live::before{background:#2E9E4F;opacity:1;box-shadow:0 0 0 2px rgba(46,158,79,.25),0 0 8px #2E9E4F;animation:glow 1.6s ease-in-out infinite}
 .chip.rec::before{background:var(--rojo);opacity:1;box-shadow:0 0 8px var(--rojo);animation:glow 1s ease-in-out infinite}
 .chip.btnchip::before{display:none}
-@keyframes glow{50%{box-shadow:0 0 0 2px rgba(46,158,79,.05),0 0 2px #2E9E4F}}
+@keyframes glow{50%{box-shadow:0 0 0 2px rgba(255,255,255,.05),0 0 2px #fff}}
 
 main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(520px,1fr);gap:14px;padding:14px 16px 40px}
 @media (max-width:1180px){main{grid-template-columns:1fr}}

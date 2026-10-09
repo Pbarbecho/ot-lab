@@ -307,16 +307,24 @@ function valueText(res) {
   if (Array.isArray(res.values)) return '[' + res.values.map(v => typeof v === 'boolean' ? (v ? 'True' : 'False') : v).join(', ') + ']';
   return res.values == null ? '—' : String(res.values);
 }
+function logRow(row) {
+  S.log.push(row); if (S.log.length > 400) S.log.shift();
+  const tb = $('#log tbody'); const tr = document.createElement('tr'); tr.className = 'new' + (row.bad ? ' err' : '') + (row.trama === 'Query' ? ' q' : ' r');
+  tr.innerHTML = `<td>${row.n}</td><td class="mono">${row.hora}</td><td><span class="tr-${row.trama === 'Query' ? 'q' : 'r'}">${esc(row.trama)}</span><br><span class="gr">${esc(row.sentido)}</span></td><td class="mono">${row.fc}</td><td>${esc(row.nombre)}</td><td class="mono">${row.dir}</td><td class="mono">${esc(row.pdu)}</td><td class="mono">${esc(row.datos)}</td><td class="mono">${row.ms}</td>`;
+  tb.prepend(tr); while (tb.children.length > 400) tb.lastChild.remove();
+}
 function logOp(res, addr) {
+  // dos filas por transacción, como la lista de Wireshark: primero la Query del maestro, luego la Response del esclavo
   const q = res.frames.find(f => f.dir === 'query'), r = res.frames.find(f => f.dir === 'response');
-  const row = { n: res.seq, hora: new Date().toLocaleTimeString('es-EC', { hour12: false }), fc: res.fc, nombre: res.fc_name, dir: addr,
-    datos: res.error ? '—' : (res.exception ? 'Response (excepción)' : (FC_WRITE.has(res.fc) ? 'Query' : 'Response')),
-    pq: q ? q.pdu.hex : '—', pr: r ? r.pdu.hex : '—', valor: valueText(res), ms: res.elapsed_ms, bad: !res.ok };
-  S.log.push(row); if (S.log.length > 300) S.log.shift();
-  const tb = $('#log tbody');
-  const tr = document.createElement('tr'); tr.className = 'new' + (row.bad ? ' err' : '');
-  tr.innerHTML = `<td>${row.n}</td><td class="mono">${row.hora}</td><td class="mono">${String(row.fc).padStart(2, '0')}</td><td>${esc(row.nombre)}</td><td class="mono">${row.dir}</td><td>${row.datos}</td><td class="mono">${esc(row.pq)}</td><td class="mono">${esc(row.pr)}</td><td class="mono">${esc(row.valor)}</td><td class="mono">${row.ms}</td>`;
-  tb.prepend(tr); while (tb.children.length > 300) tb.lastChild.remove();
+  const hora = new Date().toLocaleTimeString('es-EC', { hour12: false }); const write = FC_WRITE.has(res.fc);
+  const fld = (f, name) => { const x = (f.fields || []).find(z => z.name.startsWith(name)); return x ? (Array.isArray(x.value) ? '[' + x.value.join(', ') + ']' : String(x.value)) : ''; };
+  if (!q) { logRow({ n: res.seq, hora, trama: 'Query', sentido: 'no enviada', fc: String(res.fc).padStart(2, '0'), nombre: res.fc_name, dir: addr, pdu: '—', datos: res.error || '—', ms: '', bad: true }); return; }
+  const qData = write ? fld(q, 'Data') : `solo pide · ${fld(q, 'Bit Count') || fld(q, 'Word Count')} ${res.fc <= 2 ? 'bits' : 'registros'}`;
+  // la Response va primero al prepend para que la Query quede arriba
+  if (!r) logRow({ n: res.seq, hora, trama: 'Response', sentido: 'esclavo → maestro', fc: '—', nombre: 'sin Response (timeout)', dir: addr, pdu: '—', datos: '—', ms: res.elapsed_ms, bad: true });
+  else if (res.exception) logRow({ n: res.seq, hora, trama: 'Response', sentido: 'esclavo → maestro', fc: `${String(res.fc).padStart(2, '0')}+128 = 0x${(res.fc + 128).toString(16)}`, nombre: `excepción ${String(res.exception.code).padStart(2, '0')} ${res.exception.name}`, dir: addr, pdu: r.pdu.hex, datos: 'código de excepción', ms: res.elapsed_ms, bad: true });
+  else logRow({ n: res.seq, hora, trama: 'Response', sentido: 'esclavo → maestro', fc: String(res.fc).padStart(2, '0'), nombre: res.fc_name, dir: addr, pdu: r.pdu.hex, datos: write ? (res.fc <= 6 ? `eco · ${fld(r, 'Data')}` : `confirma · count ${fld(r, 'Count')}`) : fld(r, 'Data'), ms: res.elapsed_ms, bad: false });
+  logRow({ n: res.seq, hora, trama: 'Query', sentido: 'maestro → esclavo', fc: String(res.fc).padStart(2, '0'), nombre: res.fc_name, dir: addr, pdu: q.pdu.hex, datos: qData, ms: '', bad: false });
 }
 
 /* ------------------------------------------------------------------ ejecutar operaciones */
@@ -330,11 +338,7 @@ function opAlert(pyline, html) {   // alerta en «Última operación»: la petic
   $('#frame-query .fbody').innerHTML = '<span class="gr">—</span>'; $('#frame-response .fbody').innerHTML = '<span class="gr">—</span>';
   toast('Operación rechazada: vea «Última operación»', true);
   // también queda en la tabla a entregar: cuenta como intento, sin trama
-  const row = { n: '—', hora: new Date().toLocaleTimeString('es-EC', { hour12: false }), fc: '—', nombre: 'rechazado por la web (no enviado)', dir: '—', datos: '—', pq: '—', pr: '—', valor: html.replace(/<[^>]+>/g, '').slice(0, 90), ms: 0, bad: true };
-  S.log.push(row); if (S.log.length > 300) S.log.shift();
-  const tb = $('#log tbody'); const tr = document.createElement('tr'); tr.className = 'new err';
-  tr.innerHTML = `<td>${row.n}</td><td class="mono">${row.hora}</td><td class="mono">${row.fc}</td><td>${esc(row.nombre)}</td><td class="mono">${row.dir}</td><td>${row.datos}</td><td class="mono">${row.pq}</td><td class="mono">${row.pr}</td><td>${esc(row.valor)}</td><td class="mono">${row.ms}</td>`;
-  tb.prepend(tr);
+  logRow({ n: '—', hora: new Date().toLocaleTimeString('es-EC', { hour12: false }), trama: 'Query', sentido: 'rechazada por la web · no enviada', fc: '—', nombre: 'petición no válida', dir: '—', pdu: '—', datos: html.replace(/<[^>]+>/g, '').slice(0, 110), ms: '', bad: true });
 }
 function validateOp(op) {
   const addrBad = v => !Number.isInteger(v) || v < 0 || v > 65535;
@@ -575,8 +579,8 @@ function init() {
   $('#btn-poll').onclick = togglePoll;
   $('#btn-clear').onclick = () => { S.log = []; $('#log tbody').innerHTML = ''; };
   $('#btn-csv').onclick = () => {
-    const head = ['#', 'hora', 'FC', 'funcion', 'direccion', 'datos_en', 'pdu_query', 'pdu_response', 'valor', 'ms'];
-    const rows = S.log.map(r => [r.n, r.hora, r.fc, r.nombre, r.dir, r.datos, r.pq, r.pr, r.valor, r.ms].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    const head = ['#', 'hora', 'trama', 'sentido', 'FC', 'funcion', 'direccion', 'pdu', 'datos', 'ms'];
+    const rows = S.log.map(r => [r.n, r.hora, r.trama, r.sentido, r.fc, r.nombre, r.dir, r.pdu, r.datos, r.ms].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
     const blob = new Blob(['﻿' + [head.join(','), ...rows].join('\n')], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tabla_modbus.csv'; a.click();
   };

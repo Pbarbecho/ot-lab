@@ -271,3 +271,9 @@ body.solo .bh .hd{display:none}
 .tabla tr.acc-rw td{background:#FBECEA}
 .tabla td .tag{display:inline-block;padding:2px 11px;border-radius:999px;font-family:var(--mono);font-size:15px;font-weight:700;color:#fff;background:var(--ink)}
 .tabla td .tag.rw{background:var(--rojo)}
+
+/* tabla: Query / Response */
+.tabla .tr-q,.tabla .tr-r{display:inline-block;padding:1px 8px;border-radius:999px;font-size:13px;font-weight:700;color:#fff;background:var(--ink)}
+.tabla .tr-r{background:var(--gris)}
+.tabla tr.r td{background:#F6F6F6}
+.tabla tr.q td{border-top:2px solid var(--borde)}

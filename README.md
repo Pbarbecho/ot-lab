@@ -1,6 +1,6 @@
 # ot-lab — Laboratorio de redes industriales en Docker
 
-Guía completa (LaTeX/PDF): `docs/latex/guia.pdf`. Versión Markdown: `docs/guia-lab-redes-industriales.md`.
+La guía del laboratorio (PDF/LaTeX) se entrega aparte: no forma parte de este repositorio.
 
 ## Arranque rápido
 
@@ -23,7 +23,7 @@ Nota Linux: la versión `.bak` es la original y tiene dos fallos conocidos (Conp
 
 Contenedor `modbus-explorer` (172.28.0.40): una web que ejecuta **pymodbus** dentro de la red del laboratorio y muestra lo que viaja por el cable. Arranca con el resto del lab (`docker compose up -d`) y no necesita instalar nada en la laptop.
 
-![Explorador Modbus](docs/figuras/modbus_explorer.jpg)
+![Explorador Modbus](img/modbus_explorer.jpg)
 
 | Pestaña | Qué hace |
 |---|---|
@@ -61,5 +61,5 @@ Dos trampas de OpenPLC que la web ya esquiva: (1) un Slave Device TCP creado con
 - `scripts/`                    — `comprobacion2_modbus.sh`, `comprobacion3_opcua.sh`, `wireshark_vivo.sh`, `vacio.st`
 - `fuxa-data/`, `nodered-data/` — datos persistentes (bind mounts; solo versión macOS)
 - `captures/`                   — volcados pcap (netshoot y el explorador)
-- `docs/latex/`                 — fuente LaTeX de la guía, figuras y PDF
+- `img/`                        — imágenes del README
 - `.gitattributes`              — fuerza LF en configs (imprescindible si se clona en Windows)

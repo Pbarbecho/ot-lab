@@ -289,7 +289,8 @@ body.solo .bh .hd{display:none}
 
 /* panel lateral auto-ocultable (modo ⇥ auto) */
 .rail{display:none}
-body.autohide main{grid-template-columns:1fr}
+body.autohide main{grid-template-columns:1fr;padding-right:70px}   /* deja sitio al riel: nada queda detrás */
+body.autohide header{padding-right:80px}
 body.autohide .right{position:fixed;top:0;right:0;height:100vh;width:min(760px,92vw);background:var(--suave);box-shadow:-8px 0 28px rgba(0,0,0,.28);transform:translateX(calc(100% - 52px));transition:transform .25s ease;z-index:40;display:block;overflow:hidden}
 body.autohide .right.open{transform:none}
 body.autohide .rail{display:flex;flex-direction:column;gap:8px;position:absolute;left:0;top:0;bottom:0;width:52px;background:var(--ink);padding:10px 6px;align-items:center}

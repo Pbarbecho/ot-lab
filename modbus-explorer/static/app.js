@@ -164,22 +164,22 @@ function icon(kind, x, y) {
   }
   return g;
 }
-function pathStr(x1, y1, x2, y2) { return `M${x1} ${y1} C ${x1 + 40} ${y1}, ${x2 - 40} ${y2}, ${x2} ${y2}`; }
+function pathStr(x1, y1, x2, y2) { const k = x2 > x1 ? 45 : -45; return `M${x1} ${y1} C ${x1 + k} ${y1}, ${x2 - k} ${y2}, ${x2} ${y2}`; }
 function buildTablero() {
   const T = TABLEROS[S.tablero];
   const st = $('#dg-static'), cards = $('#dg-cards');
   st.innerHTML = ''; cards.innerHTML = ''; $('#dg-fx').innerHTML = '';
   st.appendChild(el('text', { class: 'ro', x: 0, y: 30 }, T.left));
-  st.appendChild(el('text', { class: 'ro', x: 600, y: 30 }, T.right));
-  st.appendChild(el('rect', { class: 'plc', x: 300, y: 44, width: 260, height: 452, rx: 10 }));
-  st.appendChild(el('text', { class: 'tt', x: 430, y: 80, 'text-anchor': 'middle' }, 'PLC · esclavo'));
-  st.appendChild(el('text', { class: 'ts', x: 430, y: 103, 'text-anchor': 'middle', id: 'dg-plc-sub' }, '— · unit —'));
+  st.appendChild(el('text', { class: 'ro', x: 870, y: 30, 'text-anchor': 'end' }, T.right));
+  st.appendChild(el('rect', { class: 'plc', x: 315, y: 44, width: 240, height: 452, rx: 10 }));
+  st.appendChild(el('text', { class: 'tt', x: 435, y: 80, 'text-anchor': 'middle' }, 'PLC · esclavo'));
+  st.appendChild(el('text', { class: 'ts', x: 435, y: 103, 'text-anchor': 'middle', id: 'dg-plc-sub' }, '— · unit —'));
   const used = new Set([...T.inputs, ...T.outputs].map(i => i.table));
   for (const [k, inf] of Object.entries(TABLE_INFO)) {
     const off = used.has(k) ? '' : ' off';
-    st.appendChild(el('rect', { class: 'row' + off, id: 'row-' + k, x: 312, y: inf.y - 31, width: 236, height: 62, rx: 6 }));
-    st.appendChild(el('text', { class: 'rt' + off, x: 324, y: inf.y - 5 }, inf.name));
-    st.appendChild(el('text', { class: 'rs', x: 324, y: inf.y + 19 }, inf.sub));
+    st.appendChild(el('rect', { class: 'row' + off, id: 'row-' + k, x: 327, y: inf.y - 31, width: 216, height: 62, rx: 6 }));
+    st.appendChild(el('text', { class: 'rt' + off, x: 339, y: inf.y - 5 }, inf.name));
+    st.appendChild(el('text', { class: 'rs', x: 339, y: inf.y + 19 }, inf.sub));
   }
   S.items = [];
   const nmax = Math.max(T.inputs.length, T.outputs.length, 4);
@@ -191,27 +191,27 @@ function buildTablero() {
     list.forEach((it, i) => {
       const y = 40 + i * pitch, cy = y + 41;
       const ry = TABLE_INFO[it.table].y;
-      it.pIn = isOut ? pathStr(560, ry, 600, cy) : pathStr(270, cy, 300, ry);       // sentido de la flecha dibujada
-      it.pRead = isOut ? pathStr(600, cy, 560, ry) : it.pIn;                        // lectura: tarjeta → PLC
-      it.pWrite = isOut ? it.pIn : pathStr(300, ry, 270, cy);                        // escritura: PLC → tarjeta
+      it.pIn = isOut ? pathStr(555, ry, 640, cy) : pathStr(230, cy, 315, ry);       // sentido de la flecha dibujada
+      it.pRead = isOut ? pathStr(640, cy, 555, ry) : it.pIn;                        // lectura: tarjeta → PLC
+      it.pWrite = isOut ? it.pIn : pathStr(315, ry, 230, cy);                        // escritura: PLC → tarjeta
       st.appendChild(el('path', { class: 'ln' + (isOut ? ' w' : ''), d: it.pIn }));
       const g = el('g', { class: 'item', id: `it-${it.table}-${it.addr}` });
-      g.appendChild(el('rect', { class: 'card', x, y, width: 270, height: 82, rx: 8 }));
+      g.appendChild(el('rect', { class: 'card', x, y, width: 230, height: 82, rx: 8 }));
       g.appendChild(icon(it.icon, x + 8, y));
       g.appendChild(el('text', { class: 'nm2', x: x + 66, y: y + 34 }, it.name));
       g.appendChild(el('text', { class: 'ch', x: x + 66, y: y + 64 }, `${{ di: 'DI', coils: 'coil', ir: 'IR', hr: 'HR' }[it.table]} ${it.addr}`));
-      const tv = el('text', { class: 'st2', x: x + 150, y: y + 64 }); tv.appendChild(el('tspan', { class: 'b' }, '—')); g.appendChild(tv);
+      const tv = el('text', { class: 'st2', x: x + 136, y: y + 64 }); tv.appendChild(el('tspan', { class: 'b' }, '—')); g.appendChild(tv);
       g.appendChild(el('text', { class: 'ty', x: x + 66, y: y + 80 }, `clave JSON "${it.addr + 1}" · ${{ di: 1, coils: 0, ir: 3, hr: 4 }[it.table]}${String(it.addr + 1).padStart(4, '0')}`));
       it.g = g; it.tv = tv; it.shown = undefined;
       cards.appendChild(g); S.items.push(it);
     });
   };
-  place(T.inputs, 0, false); place(T.outputs, 600, true);
+  place(T.inputs, 0, false); place(T.outputs, 640, true);
   if (S.tablero === 'custom') {   // huecos en gris: se irán llenando desde el editor «Modbus server»
     const ghost = (x, i, n, isOut) => {
       const pitch = n > 4 ? 92 : 112; const y = 40 + i * pitch;
       const g = el('g', { class: 'item ghost' });
-      g.appendChild(el('rect', { class: 'card', x, y, width: 270, height: 82, rx: 8 }));
+      g.appendChild(el('rect', { class: 'card', x, y, width: 230, height: 82, rx: 8 }));
       g.appendChild(el('rect', { class: 'ico', x: x + 14, y: y + 20, width: 40, height: 40, rx: 8 }));
       g.appendChild(el('text', { class: 'gh', x: x + 66, y: y + 40 }, isOut ? 'salida / parámetro' : 'entrada / medida'));
       g.appendChild(el('text', { class: 'gh', x: x + 66, y: y + 66, style: 'font-size:15px;font-weight:400' }, 'añádalo en Modbus server'));
@@ -219,7 +219,7 @@ function buildTablero() {
     };
     const nIn = Math.max(T.inputs.length, 4), nOut = Math.max(T.outputs.length, 5);
     for (let i = T.inputs.length; i < nIn; i++) ghost(0, i, nIn, false);
-    for (let i = T.outputs.length; i < nOut; i++) ghost(600, i, nOut, true);
+    for (let i = T.outputs.length; i < nOut; i++) ghost(640, i, nOut, true);
   }
   S.items.forEach(refreshCard);
   updatePlcSub();

@@ -218,10 +218,11 @@ ul.files a{color:var(--rojo);font-weight:600;text-decoration:none}
 .edcols{display:grid;grid-template-columns:1fr;gap:14px;margin-top:6px}
 .mini-in{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;margin-left:6px}
 .edlist{display:flex;flex-direction:column;gap:6px;min-height:40px}
-.edrow{display:grid;grid-template-columns:70px minmax(140px,1fr) 150px 190px 96px auto;gap:5px;align-items:center;padding:6px 8px;border:1px solid var(--gris-claro);border-left:6px solid var(--ink);border-radius:4px;background:#fff}
+.edrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--gris-claro);border-left:6px solid var(--ink);border-radius:4px;background:#fff}
+.edrow .ch{flex:0 0 64px}.edrow .nm{flex:1 1 130px}.edrow .ic{flex:1 1 110px}.edrow .fm{flex:1 1 140px}.edrow .vl{flex:0 0 90px}.edrow .ops{flex:0 0 auto;margin-left:auto}
 .edrow.out{border-left-color:var(--rojo)}
 .edrow .ch{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--rojo)}
-.edrow input,.edrow select{font-size:14.5px;padding:3px 5px;min-width:0;width:100%}
+.edrow input,.edrow select{font-size:14.5px;padding:3px 5px;min-width:0;width:auto}
 .edrow .ops{display:flex;gap:2px}
 .edrow .ops button{border:1px solid var(--gris-claro);background:var(--suave);color:var(--ink);border-radius:3px;cursor:pointer;font-size:14px;padding:3px 7px}
 .edrow .ops button:hover{background:var(--tinte)}

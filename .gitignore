@@ -28,3 +28,6 @@ scripts/uaexpert/
 
 # Tablero del editor «Modbus server» (cada estudiante crea el suyo)
 modbus/tablero.json
+
+# Documentación (guía, LaTeX, figuras): solo local, no se sube al repo
+docs/

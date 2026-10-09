@@ -254,28 +254,32 @@ function refreshCard(it, mode) {
 }
 function flashRow(table, write) { const r = $('#row-' + table); if (!r) return; r.classList.add(write ? 'hot' : 'hotr'); setTimeout(() => r.classList.remove('hot', 'hotr'), 700); }
 function packet(path, write, label, delay) {
+  // píldora legible: «FC 06 · 280» viaja por el cable (rojo = escritura, azul = lectura)
   const fx = $('#dg-fx');
+  const w = 18 + label.length * 10.5, h = 30;
   const g = el('g', { class: 'pkt' + (write ? ' w' : '') });
-  g.appendChild(el('circle', { r: 11, class: 'pkt' + (write ? ' w' : '') }));
-  g.appendChild(el('text', { 'text-anchor': 'middle', y: 5 }, label));
-  const am = el('animateMotion', { dur: '0.55s', begin: 'indefinite', fill: 'freeze', path, calcMode: 'spline', keySplines: '.3 0 .3 1', keyTimes: '0;1', keyPoints: '0;1' });
+  g.appendChild(el('rect', { x: -w / 2, y: -h / 2, width: w, height: h, rx: h / 2, class: 'pkt' + (write ? ' w' : '') }));
+  g.appendChild(el('text', { 'text-anchor': 'middle', y: 6 }, label));
+  const am = el('animateMotion', { dur: '0.7s', begin: 'indefinite', fill: 'freeze', path, calcMode: 'spline', keySplines: '.3 0 .3 1', keyTimes: '0;1', keyPoints: '0;1' });
   g.appendChild(am); fx.appendChild(g);
   setTimeout(() => { am.beginElement(); }, delay || 0);
-  setTimeout(() => g.remove(), 700 + (delay || 0));
+  setTimeout(() => g.remove(), 900 + (delay || 0));
 }
 function animate(fc, addr, count, ok) {
   const table = FC_TABLE[fc], write = FC_WRITE.has(fc);
   const touched = S.items.filter(it => it.table === table && it.addr >= addr && it.addr < addr + count);
   flashRow(table, write);
   touched.forEach((it, i) => {
-    packet(write ? it.pWrite : it.pRead, write, String(fc).padStart(2, '0'), i * 60);
+    const v = S.vals[table][it.addr]; const vs = v === undefined ? '' : (typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+    const label = `FC ${String(fc).padStart(2, '0')}` + (ok && vs !== '' ? ` · ${vs}` : (ok ? '' : ' · ✕'));
+    packet(write ? it.pWrite : it.pRead, write, label, i * 90);
     setTimeout(() => {
       it.g.classList.remove('flash-r', 'flash-w', 'err');
       it.g.classList.add(ok ? (write ? 'flash-w' : 'flash-r') : 'err');
       refreshCard(it, write ? 'w' : 'r');
       setTimeout(() => it.g.classList.remove('flash-r', 'flash-w'), 900);
       if (!ok) setTimeout(() => it.g.classList.remove('err'), 1800);
-    }, 520 + i * 60);
+    }, 650 + i * 90);
   });
 }
 

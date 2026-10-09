@@ -96,8 +96,8 @@ label{display:inline-flex;align-items:center;gap:6px;font-size:16px;color:var(--
 .dg .ty{font-size:14px;fill:var(--gris)}
 .dg .ico{fill:none;stroke:var(--ink);stroke-width:3}.dg .ico.on{fill:var(--rojo);stroke:var(--rojo)}
 .dg .ico.led{transition:fill .3s}.dg .ico.led.lit{fill:#2E9E4F;stroke:#2E9E4F;filter:drop-shadow(0 0 4px #2E9E4F)}
-.dg .pkt{fill:var(--ink);stroke:#fff;stroke-width:2}.dg .pkt.w{fill:var(--rojo)}
-.dg .pkt text{font-family:var(--mono);font-size:14px;font-weight:700;fill:#fff}
+.dg .pkt{fill:var(--ink);stroke:#fff;stroke-width:2.5;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}.dg .pkt.w{fill:var(--rojo)}
+.dg .pkt text{font-family:var(--mono);font-size:17px;font-weight:700;fill:#fff;letter-spacing:.02em;paint-order:stroke}
 .dg .fan{transform-box:fill-box;transform-origin:center}
 .dg .fan.spin{animation:spin 1.2s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}

@@ -851,12 +851,14 @@ function layoutInit() {
   });
   $('#btn-layout-reset').onclick = () => { try { localStorage.removeItem(LAYOUT_KEY); localStorage.removeItem('explorer-collapsed'); } catch (e) { } location.reload(); };
   layoutApply();
-  const syncTabLink = () => { const t = $('.tabs button.on'); if (t) $('#btn-tab-open').href = `${location.pathname}?tab=${t.dataset.tab}`; };
-  syncTabLink(); $$('.tabs button[data-tab]').forEach(b => b.addEventListener('click', syncTabLink));
   drawerInit();
   // modo «solo»: ?block=id muestra únicamente ese bloque; ?tab=id, una pestaña entera
-  const qs = new URLSearchParams(location.search); const solo = qs.get('block'); const soloTab = qs.get('tab');
-  if (solo) {
+  const qs = new URLSearchParams(location.search); const solo = qs.get('block'); const soloTab = qs.get('tab'); const soloPanel = qs.get('panel');
+  if (soloPanel) {   // el panel derecho completo, con sus cuatro pestañas, en una ventana aparte
+    document.body.classList.add('solo', 'solo-panel'); document.body.classList.remove('autohide');
+    $('#solo').appendChild($('#right')); document.title = 'Panel · Explorador Modbus';
+    jsonRefresh(); capRefresh(); capList(); plcRefresh();
+  } else if (solo) {
     const b = document.querySelector(`[data-block="${solo}"]`);
     if (b) { document.body.classList.add('solo'); $('#solo').appendChild(b); document.title = `${b.dataset.title} · Explorador Modbus`; }
   } else if (soloTab) {
@@ -888,6 +890,7 @@ async function offsetCheck() {
 function drawerInit() {
   const KEY = 'explorer-autohide'; const right = $('#right'); let auto = false, timer = null;
   try { auto = localStorage.getItem(KEY) === '1'; } catch (e) { }
+  if (new URLSearchParams(location.search).get('panel')) auto = false;
   const apply = () => { document.body.classList.toggle('autohide', auto); right.classList.remove('open'); try { localStorage.setItem(KEY, auto ? '1' : '0'); } catch (e) { } };
   const open = () => { clearTimeout(timer); right.classList.add('open'); };
   const close = (ms) => { clearTimeout(timer); timer = setTimeout(() => right.classList.remove('open'), ms == null ? 700 : ms); };

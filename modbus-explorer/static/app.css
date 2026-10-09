@@ -300,3 +300,7 @@ body.autohide .rail .rb.pin{transform:none;writing-mode:horizontal-tb;font-size:
 body.autohide .rbody{position:absolute;left:52px;right:0;top:0;bottom:0;overflow:auto;padding:12px 14px 40px;display:flex;flex-direction:column;gap:12px}
 body.autohide #btn-drawer{display:none}
 body:not(.autohide) .rbody{display:contents}
+
+/* ventana «panel»: el aside completo con sus pestañas */
+body.solo-panel #solo .right{display:flex;flex-direction:column;gap:12px;max-width:1600px;margin:0 auto}
+body.solo-panel #btn-tab-open,body.solo-panel #btn-drawer{display:none}

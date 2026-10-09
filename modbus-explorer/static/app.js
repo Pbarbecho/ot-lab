@@ -591,6 +591,7 @@ function init() {
   $('#btn-connect').onclick = () => connectTo(currentTarget());
   $('#btn-disconnect').onclick = async () => { try { await api('/api/disconnect', {}); } catch (e) { } S.session = { connected: false }; setChipSession(); if (S.poll) togglePoll(); $('#pyline').innerHTML = '&gt;&gt;&gt; c.close()'; };
   $('#btn-read').onclick = e => runOp({ read: $('input[name=rt]:checked').value, addr: +$('#r-addr').value, count: +$('#r-count').value }, e.target);
+  ['#w-val', '#w-addr'].forEach(id => $(id).addEventListener('input', writePreview)); $$('input[name=wt]').forEach(r => r.addEventListener('change', writePreview)); writePreview();
   $('#btn-write').onclick = e => runOp({ write: $('input[name=wt]:checked').value, addr: +$('#w-addr').value, val: $('#w-val').value }, e.target);
   $('#btn-poll').onclick = togglePoll;
   $('#btn-clear').onclick = () => { S.log = []; $('#log tbody').innerHTML = ''; };
@@ -938,4 +939,21 @@ function zoomInit() {
   });
   document.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); z += e.deltaY < 0 ? 0.05 : -0.05; apply(); } }, { passive: false });
   apply();
+}
+
+
+/* ------------------------------------------------------------------ previsualización: a qué dirección va cada valor */
+function writePreview() {
+  const box = $('#w-preview'); if (!box) return;
+  const kind = ($('input[name=wt]:checked') || {}).value; const addr = +$('#w-addr').value || 0; const raw = String($('#w-val').value).split(/[,;\s]+/).filter(Boolean);
+  const bits = kind === 'coil' || kind === 'coils'; const multi = kind === 'coils' || kind === 'registers';
+  const lab = bits ? 'coil' : 'HR';
+  if (!raw.length) { box.innerHTML = `<span class="cnt">${multi ? 'escriba varios valores separados por coma, uno por ' + lab : 'escriba un valor'}</span>`; return; }
+  const items = (multi ? raw : raw.slice(0, 1)).map((v, i) => {
+    const ok = bits ? /^(0|1|t|f|true|false|on|off)$/i.test(v) : /^-?\d+$/.test(v);
+    const shown = bits ? (/^(1|t|true|on)$/i.test(v) ? '1' : (/^(0|f|false|off)$/i.test(v) ? '0' : v)) : v;
+    return `<span class="wp ${ok ? '' : 'bad'}">${lab} ${addr + i} ← <b>${esc(shown)}</b></span>`;
+  }).join('');
+  const extra = !multi && raw.length > 1 ? `<span class="wp bad">FC ${bits ? '05' : '06'} escribe uno solo: sobran ${raw.length - 1} · use FC ${bits ? '15' : '16'}</span>` : '';
+  box.innerHTML = items + extra + `<span class="cnt">${multi ? `count = ${raw.length} · desde dir ${addr} hasta ${addr + raw.length - 1}` : `un solo ${lab} en dir ${addr}`}</span>`;
 }

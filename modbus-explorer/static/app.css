@@ -335,3 +335,10 @@ body.solo-panel #btn-tab-open,body.solo-panel #btn-drawer{display:none}
 .dg .ln{filter:drop-shadow(2px 3px 2px rgba(0,0,0,.25))}
 .dg .ln.w{filter:drop-shadow(2px 3px 2px rgba(165,16,8,.3))}
 .dg .pkt{filter:drop-shadow(4px 6px 6px rgba(0,0,0,.4))}
+
+/* previsualización de la escritura múltiple */
+.wprev{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0;font-size:14px}
+.wprev .wp{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--borde);border-radius:999px;background:var(--tinte);font-family:var(--mono);color:var(--ink)}
+.wprev .wp b{color:var(--rojo)}
+.wprev .wp.bad{border-color:var(--rojo);background:#fde9e7;color:var(--rojo)}
+.wprev .cnt{align-self:center;color:var(--gris);font-size:13px}

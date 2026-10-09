@@ -100,6 +100,9 @@ label{display:inline-flex;align-items:center;gap:6px;font-size:16px;color:var(--
 .dg .pkt text{font-family:var(--mono);font-size:17px;font-weight:700;fill:#fff;letter-spacing:.02em;paint-order:stroke}
 .dg .fan{transform-box:fill-box;transform-origin:center}
 .dg .fan.spin{animation:spin 1.2s linear infinite}
+.dg .rotor{transform-box:fill-box;transform-origin:center}
+.dg .rotor.spin{animation:spin 1.6s linear infinite}
+.dg .rotor.spin .ico{stroke:#2E9E4F}
 @keyframes spin{to{transform:rotate(360deg)}}
 .legend{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:8px;font-size:14.5px;color:var(--cuerpo)}
 .legend .sw{display:inline-block;width:22px;height:4px;vertical-align:middle;margin-right:6px;border-radius:2px}

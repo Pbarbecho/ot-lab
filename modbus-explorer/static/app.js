@@ -14,11 +14,11 @@ const FC_WRITE = new Set([5, 6, 15, 16]);
 const dec = (v, d = 1) => (v / 10).toFixed(d).replace('.', ',');
 const i16 = v => (v > 32767 ? v - 65536 : v);
 const FORMATS = {
-  bool_onoff:   { label: 'bit · encendido/apagado', bits: true, fmt: b => b ? '1 encendido' : '0 apagado' },
-  bool_pressed: { label: 'bit · pulsado',           bits: true, fmt: b => b ? '1 pulsado' : '0' },
+  bool_onoff:   { label: 'bit · ON/OFF',             bits: true, fmt: b => b ? '1 · ON' : '0 · OFF' },
+  bool_pressed: { label: 'bit · pulsador',          bits: true, fmt: b => b ? '1 · ON' : '0 · OFF' },
   bool_open:    { label: 'bit · abierta/cerrada',   bits: true, fmt: b => b ? '1 abierta' : '0 cerrada' },
-  bool_run:     { label: 'bit · marcha/parada',     bits: true, fmt: b => b ? '1 marcha' : '0 parada' },
-  bool_alarm:   { label: 'bit · sonando',           bits: true, fmt: b => b ? '1 sonando' : '0' },
+  bool_run:     { label: 'bit · marcha/parada',     bits: true, fmt: b => b ? '1 · ON' : '0 · OFF' },
+  bool_alarm:   { label: 'bit · alarma',            bits: true, fmt: b => b ? '1 · ON' : '0 · OFF' },
   int:   { label: 'entero 0–65535', fmt: v => `${v}` },
   x10c:  { label: '×10 · °C',       fmt: v => `${v} = ${dec(v)}°C` },
   x10pct:{ label: '×10 · %',        fmt: v => `${v} = ${dec(v)} %` },
@@ -159,7 +159,7 @@ function icon(kind, x, y) {
     case 'led': add('circle', { class: 'ico led', cx: x + 25, cy: y + 41, r: 16 }); add('line', { class: 'ico', x1: x + 25, y1: y + 60, x2: x + 25, y2: y + 70 }); break;
     case 'button': add('circle', { class: 'ico', cx: x + 25, cy: y + 41, r: 20 }); add('circle', { class: 'ico led', cx: x + 25, cy: y + 41, r: 10 }); break;
     case 'door': add('rect', { class: 'ico', x: x + 9, y: y + 15, width: 32, height: 52, rx: 3 }); add('circle', { class: 'ico led', cx: x + 33, cy: y + 42, r: 3 }); break;
-    case 'pump': add('circle', { class: 'ico', cx: x + 25, cy: y + 41, r: 20 }); add('path', { class: 'ico', d: `M${x + 25} ${y + 21} L${x + 25} ${y + 41} L${x + 41} ${y + 41}` }); add('rect', { class: 'ico', x: x + 3, y: y + 61, width: 44, height: 8 }); break;
+    case 'pump': { add('circle', { class: 'ico', cx: x + 25, cy: y + 41, r: 20 }); const rot = el('g', { class: 'rotor' }); rot.appendChild(el('path', { class: 'ico', d: `M${x + 25} ${y + 21} L${x + 25} ${y + 41} L${x + 41} ${y + 41}` })); rot.appendChild(el('path', { class: 'ico', d: `M${x + 25} ${y + 61} L${x + 25} ${y + 41} L${x + 9} ${y + 41}` })); g.appendChild(rot); add('rect', { class: 'ico', x: x + 3, y: y + 61, width: 44, height: 8 }); break; }
     case 'siren': add('path', { class: 'ico', d: `M${x + 7} ${y + 59} A 18 18 0 0 1 ${x + 43} ${y + 59} Z` }); add('rect', { class: 'ico', x: x + 3, y: y + 59, width: 44, height: 8, rx: 2 }); add('path', { class: 'ico led', d: `M${x + 25} ${y + 15} L${x + 25} ${y + 25} M${x + 8} ${y + 24} L${x + 14} ${y + 30} M${x + 42} ${y + 24} L${x + 36} ${y + 30}` }); break;
   }
   return g;
@@ -259,7 +259,7 @@ function refreshCard(it, mode) {
   it.shown = v;
   const on = typeof v === 'boolean' ? v : v > 0;
   it.g.querySelectorAll('.led').forEach(e => e.classList.toggle('lit', on));
-  it.g.querySelectorAll('.fan').forEach(e => e.classList.toggle('spin', on));
+  it.g.querySelectorAll('.fan, .rotor').forEach(e => e.classList.toggle('spin', on));
   it.g.querySelectorAll('.knobdot').forEach(e => e.setAttribute('cx', on ? e.getAttribute('cx') : e.getAttribute('cx')));
 }
 function flashRow(table, write) { const r = $('#row-' + table); if (!r) return; r.classList.add(write ? 'hot' : 'hotr'); setTimeout(() => r.classList.remove('hot', 'hotr'), 700); }

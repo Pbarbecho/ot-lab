@@ -776,16 +776,14 @@ function escPacket() {
   escQueryResponse(link, 450); escDot('l-browser', 400);
 }
 function escInit() {
-  const key = 'esc-hidden', keyD = 'esc-detail'; let hidden = false, detail = false;
-  try { hidden = localStorage.getItem(key) === '1'; detail = localStorage.getItem(keyD) === '1'; } catch (e) { }
+  const keyD = 'esc-detail'; let hidden = false, detail = false;
+  try { detail = localStorage.getItem(keyD) === '1'; } catch (e) { }
   const apply = () => {
     document.body.classList.toggle('esc-detail', detail);
     $('#esc').classList.toggle('hidden', hidden || !detail); $('#esc-cim').classList.toggle('hidden', hidden || detail);
-    $('#btn-esc').textContent = hidden ? 'Mostrar' : 'Ocultar';
-    $('#btn-esc-detail').textContent = detail ? 'Simple' : 'Detalle'; $('#btn-esc-detail').classList.toggle('hidden', hidden);
+    $('#btn-esc-detail').textContent = detail ? 'Simple' : 'Detalle';
     $('#esc-title').textContent = detail ? 'Escenario · detalle: qué hay y dónde vive (lámina 18)' : 'Escenario · por niveles CIM (Clase 2) · una orden baja, un dato sube';
   };
-  $('#btn-esc').onclick = () => { hidden = !hidden; try { localStorage.setItem(key, hidden ? '1' : '0'); } catch (e) { } apply(); };
   $('#btn-esc-detail').onclick = () => { detail = !detail; try { localStorage.setItem(keyD, detail ? '1' : '0'); } catch (e) { } apply(); };
   apply(); escUpdate();
 }

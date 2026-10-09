@@ -174,6 +174,8 @@ function buildTablero() {
   st.appendChild(el('rect', { class: 'plc', x: 315, y: 44, width: 240, height: 452, rx: 10 }));
   st.appendChild(el('text', { class: 'tt', x: 435, y: 80, 'text-anchor': 'middle' }, 'PLC · esclavo'));
   st.appendChild(el('text', { class: 'ts', x: 435, y: 103, 'text-anchor': 'middle', id: 'dg-plc-sub' }, '— · unit —'));
+  st.appendChild(el('circle', { class: 'plcled', id: 'dg-led', cx: 537, cy: 62, r: 8 }));   // foquito: verde con la sesión abierta
+  st.appendChild(el('title', {}, 'verde = sesión pymodbus abierta con este esclavo'));
   const used = new Set([...T.inputs, ...T.outputs].map(i => i.table));
   for (const [k, inf] of Object.entries(TABLE_INFO)) {
     const off = used.has(k) ? '' : ' off';
@@ -232,7 +234,7 @@ function buildTablero() {
   renderSteps('#steps', T.steps);
   $('#json-snippet').textContent = T.json || edJson();
 }
-function updatePlcSub() { const s = S.session; const t = $('#dg-plc-sub'); if (t) t.textContent = s.connected ? `${s.host}:${s.port} · unit ${s.unit}` : 'sin conexión'; $('#dg-target').textContent = s.connected ? `${s.host}:${s.port} · unit ${s.unit}` : 'sin conexión'; }
+function updatePlcSub() { const s = S.session; const t = $('#dg-plc-sub'); if (t) t.textContent = s.connected ? `${s.host}:${s.port} · unit ${s.unit}` : 'sin conexión'; const led = $('#dg-led'); if (led) led.classList.toggle('on', !!s.connected); $('#dg-target').textContent = s.connected ? `${s.host}:${s.port} · unit ${s.unit}` : 'sin conexión'; }
 function refreshCard(it, mode) {
   const v = S.vals[it.table][it.addr];
   it.tv.innerHTML = '';

@@ -76,7 +76,7 @@ label{display:inline-flex;align-items:center;gap:6px;font-size:16px;color:var(--
 .dg .rs{font-family:var(--mono);font-size:15px;fill:var(--gris)}
 .dg .ln{stroke:var(--ink);stroke-width:3.5;fill:none;marker-end:url(#cra);opacity:.9}
 .dg .ln.w{stroke:var(--rojo);marker-end:url(#crr)}
-.dg .acc{font-family:var(--mono);font-size:13px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:#fff;stroke-width:5px}
+.dg .acc{font-family:var(--mono);font-size:20px;font-weight:800;fill:var(--ink);paint-order:stroke;stroke:#fff;stroke-width:7px}
 .dg .acc.w{fill:var(--rojo)}
 .dg .card{fill:#fff;stroke:var(--ink);stroke-width:3;transition:fill .3s,stroke .3s}
 .dg g.item.flash-r .card{fill:#E9EFF5}
@@ -264,5 +264,5 @@ body.solo .bh .hd{display:none}
 /* tabla registers: R / R/W */
 .tabla tr.acc-r td{background:#EEF3F9}
 .tabla tr.acc-rw td{background:#FBECEA}
-.tabla td .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-family:var(--mono);font-size:12.5px;font-weight:700;color:#fff;background:var(--ink)}
+.tabla td .tag{display:inline-block;padding:2px 11px;border-radius:999px;font-family:var(--mono);font-size:15px;font-weight:700;color:#fff;background:var(--ink)}
 .tabla td .tag.rw{background:var(--rojo)}

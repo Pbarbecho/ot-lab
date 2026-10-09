@@ -200,7 +200,7 @@ function buildTablero() {
       const rw = TABLE_INFO[it.table].acc === 'R/W';
       st.appendChild(el('path', { class: 'ln' + (rw ? ' w' : ''), d: it.pIn }));
       // etiqueta R / R/W sobre el cable, cerca de la tarjeta
-      const lx = isOut ? 640 - 14 : 230 + 14, ly = cy - 8;
+      const lx = isOut ? 640 - 12 : 230 + 12, ly = cy - 12;
       st.appendChild(el('text', { class: 'acc' + (rw ? ' w' : ''), x: lx, y: ly, 'text-anchor': isOut ? 'end' : 'start' }, rw ? 'R/W' : 'R'));
       const g = el('g', { class: 'item', id: `it-${it.table}-${it.addr}` });
       g.appendChild(el('rect', { class: 'card', x, y, width: 230, height: 82, rx: 8 }));

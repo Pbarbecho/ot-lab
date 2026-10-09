@@ -200,11 +200,10 @@ ul.files a{color:var(--rojo);font-weight:600;text-decoration:none}
 .esc .dot{fill:var(--rojo);stroke:#fff;stroke-width:2}
 .legend .sw.gris{background:var(--gris)}
 /* editor Modbus server */
-.edcols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
-@media (max-width:1500px){.edcols{grid-template-columns:1fr}}
+.edcols{display:grid;grid-template-columns:1fr;gap:14px;margin-top:6px}
 .mini-in{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;margin-left:6px}
 .edlist{display:flex;flex-direction:column;gap:6px;min-height:40px}
-.edrow{display:grid;grid-template-columns:62px 1fr 110px 140px 84px auto;gap:5px;align-items:center;padding:6px 8px;border:1px solid var(--gris-claro);border-left:6px solid var(--ink);border-radius:4px;background:#fff}
+.edrow{display:grid;grid-template-columns:70px minmax(140px,1fr) 150px 190px 96px auto;gap:5px;align-items:center;padding:6px 8px;border:1px solid var(--gris-claro);border-left:6px solid var(--ink);border-radius:4px;background:#fff}
 .edrow.out{border-left-color:var(--rojo)}
 .edrow .ch{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--rojo)}
 .edrow input,.edrow select{font-size:14.5px;padding:3px 5px;min-width:0;width:100%}

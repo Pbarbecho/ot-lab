@@ -393,6 +393,54 @@ def modbus_server_put(doc: ModbusServerDoc) -> dict[str, Any]:
     return {"ok": True, "registers": data["registers"], "json": json.dumps(data["registers"], indent=2, ensure_ascii=False)}
 
 
+@app.get("/api/modbus-server/offset-check")
+def modbus_server_offset_check() -> dict[str, Any]:
+    """Comprueba en vivo si las claves de server.json son 0-based o 1-based respecto a la dirección que envía pymodbus."""
+    if not SERVER_JSON.exists():
+        return {"ok": False, "text": "No hay server.json montado."}
+    try:
+        regs = json.loads(SERVER_JSON.read_text()).get("registers", {})
+    except json.JSONDecodeError:
+        return {"ok": False, "text": "server.json roto: no se puede comprobar."}
+    fn = {"holdingRegister": ("read_holding_registers", 3), "inputRegister": ("read_input_registers", 4),
+          "coils": ("read_coils", 1), "discreteInput": ("read_discrete_inputs", 2)}
+    probe = None
+    for key, (name, fc) in fn.items():
+        for k, v in (regs.get(key) or {}).items():
+            if k.isdigit() and int(k) >= 1 and v not in (0, False, None):
+                probe = (key, name, fc, int(k), v); break
+        if probe:
+            break
+    if not probe:
+        return {"ok": False, "text": "No concluyente: declare al menos un registro con valor distinto de 0 (o un bit en true) para poder comprobarlo."}
+    key, name, fc, k, v = probe
+    c = ModbusTcpClient("172.28.0.30", port=5020, timeout=2, retries=0)
+    if not c.connect():
+        return {"ok": False, "text": "modbus-sim no responde en 172.28.0.30:5020; no se pudo comprobar en vivo."}
+    try:
+        def rd(addr: int) -> Any:
+            r = getattr(c, name)(addr, count=1, device_id=1)
+            if r.isError():
+                return None
+            return bool(r.bits[0]) if fc in (1, 2) else r.registers[0]
+        at_minus = rd(k - 1); at_same = rd(k)
+    finally:
+        c.close()
+    vv = bool(v) if fc in (1, 2) else int(v)
+    if at_minus == vv and at_same != vv:
+        base = "1-based"
+        text = (f"Comprobado en vivo: la clave \"{k}\" de {key} vale {v}; pymodbus con address={k - 1} (en la trama viaja {k - 1:04x} hex) devolvió {at_minus}, y con address={k} devolvió {at_same}. "
+                f"El simulador oitc/modbus-server cuenta desde 1 y pymodbus (y la trama Modbus) desde 0: clave JSON = dirección pymodbus + 1, igual que la notación SCADA (4000{k}).")
+    elif at_same == vv and at_minus != vv:
+        base = "0-based"
+        text = (f"Comprobado en vivo: la clave \"{k}\" de {key} vale {v} y pymodbus la lee con address={k}: esta versión del simulador cuenta desde 0, igual que pymodbus. "
+                f"La regla «clave = dirección + 1» de la lámina 20 NO aplica a esta imagen.")
+    else:
+        base = "?"
+        text = f"No concluyente: address={k - 1} → {at_minus}, address={k} → {at_same} (clave \"{k}\" = {v}). Reinicie modbus-sim tras guardar y vuelva a comprobar."
+    return {"ok": base != "?", "base": base, "key": k, "value": v, "table": key, "at_minus": at_minus, "at_same": at_same, "text": text}
+
+
 @app.post("/api/modbus-server/apply")
 def modbus_server_apply() -> dict[str, Any]:
     if not docker_sock_ok():

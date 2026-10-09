@@ -491,13 +491,14 @@ async function jsonRefresh() {
     if (!j.available) { $('#json-meta').textContent = 'no montado'; return; }
     if (j.error) { $('#json-meta').textContent = j.error; tb.innerHTML = ''; return; }
     $('#json-meta').textContent = `${j.path} · ${j.mtime.replace('T', ' ')} · puerto ${j.server.listenerPort} · log ${j.server.logging && j.server.logging.logLevel}`;
-    const map = { discreteInput: ['DI · FC 02', 1], coils: ['Coils · FC 01/05/15', 0], inputRegister: ['IR · FC 04', 3], holdingRegister: ['HR · FC 03/06/16', 4] };
+    const map = { discreteInput: ['DI · FC 02', 1, 'R'], coils: ['Coils · FC 01/05/15', 0, 'R/W'], inputRegister: ['IR · FC 04', 3, 'R'], holdingRegister: ['HR · FC 03/06/16', 4, 'R/W'] };
     let h = '';
-    for (const [k, [lab, pre]] of Object.entries(map)) {
-      const t = j.registers[k] || {};
-      Object.keys(t).sort((a, b) => a - b).forEach(key => { const a = +key - 1; h += `<tr><td>${lab}</td><td class="mono">"${key}"</td><td class="mono">${a}</td><td class="mono">${pre}${String(a + 1).padStart(4, '0')}</td><td class="mono">${String(t[key])}</td></tr>`; });
+    for (const [k, [lab, pre, acc]] of Object.entries(map)) {
+      const t = j.registers[k] || {}; const rw = acc === 'R/W';
+      Object.keys(t).sort((a, b) => a - b).forEach(key => { const a = +key - 1; h += `<tr class="${rw ? 'acc-rw' : 'acc-r'}"><td>${lab}</td><td><span class="tag ${rw ? 'rw' : ''}">${acc}</span></td><td class="mono">"${key}"</td><td class="mono">${a}</td><td class="mono">${pre}${String(a + 1).padStart(4, '0')}</td><td class="mono">${String(t[key])}</td></tr>`; });
     }
-    tb.innerHTML = h || '<tr><td colspan="5" class="gr">sin registros declarados</td></tr>';
+    tb.innerHTML = h || '<tr><td colspan="6" class="gr">sin registros declarados</td></tr>';
+    offsetCheck();
   } catch (e) { $('#json-meta').textContent = e.message; }
 }
 
@@ -680,7 +681,7 @@ async function edInit() {
     }   // sin tablero.json: el editor arranca vacío y el tablero muestra los huecos en gris
     if (j.server) { ED.logLevel = (j.server.logging && j.server.logging.logLevel) || 'DEBUG'; ED.init = j.registers ? j.registers.initializeUndefinedRegisters !== false : true; }
     if (!j.docker) $('#btn-ed-apply').title = 'Sin socket de Docker: guarde y ejecute docker compose restart modbus-sim';
-    TABLEROS.custom = customTablero(); tableroOptions(); edRender(); ED.dirty = false; $('#ed-status').textContent = j.writable ? 'listo' : 'carpeta modbus/ solo lectura';
+    TABLEROS.custom = customTablero(); tableroOptions(); edRender(); if (S.tablero === 'custom') { const keep = S.vals; buildTablero(); S.vals = keep; S.items.forEach(it => refreshCard(it)); } $('#json-snippet').textContent = edJson(); ED.dirty = false; $('#ed-status').textContent = j.writable ? 'listo' : 'carpeta modbus/ solo lectura';
   } catch (e) { $('#ed-status').textContent = e.message; }
 }
 
@@ -806,3 +807,9 @@ function layoutInit() {
   }
 }
 function bcast(msg) { if (BC) BC.postMessage({ from: TAB_ID, ...msg }); }
+
+async function offsetCheck() {
+  const n = $('#offset-note'); if (!n) return;
+  try { const j = await api('/api/modbus-server/offset-check'); n.className = 'banner' + (j.ok ? ' ok' : ''); n.querySelector('span').textContent = j.text; }
+  catch (e) { n.querySelector('span').textContent = e.message; }
+}

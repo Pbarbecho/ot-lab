@@ -259,3 +259,9 @@ body.solo .bh .hd{display:none}
 .dg g.ghost text{fill:var(--gris-claro)}
 .dg g.ghost .ico{stroke:var(--gris-claro);fill:none}
 .dg g.ghost .gh{font-size:19px;font-weight:600;fill:#c4c4c4}
+
+/* tabla registers: R / R/W */
+.tabla tr.acc-r td{background:#EEF3F9}
+.tabla tr.acc-rw td{background:#FBECEA}
+.tabla td .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-family:var(--mono);font-size:12.5px;font-weight:700;color:#fff;background:var(--ink)}
+.tabla td .tag.rw{background:var(--rojo)}

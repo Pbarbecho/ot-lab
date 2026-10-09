@@ -4,17 +4,62 @@ La guía del laboratorio (PDF/LaTeX) se entrega aparte: no forma parte de este r
 
 ## Arranque rápido
 
-Un solo `docker-compose.yml` para macOS, Windows 10/11 (Docker Desktop + WSL 2) y Linux, en Intel/AMD o ARM: Docker elige solo la arquitectura de cada imagen.
+Un solo `docker-compose.yml` para macOS, Windows 10/11 y Linux, en Intel/AMD o ARM: Docker elige solo la arquitectura de cada imagen (OpenPLC y Conpot solo existen para amd64 y en ARM corren emuladas). Siga primero los pasos de su sistema y luego:
 
 ```bash
-docker compose up -d
-docker compose ps                 # todos "Up" (Ignition tarda 1-3 min; modbus-explorer se construye la primera vez)
-docker compose logs -f ignition
+docker compose up -d              # la primera vez descarga imágenes y construye modbus-explorer y opcua-py
+docker compose ps                 # todos "Up" (Ignition tarda 1-3 min)
+docker compose logs -f ignition   # seguir el arranque de un servicio
+docker compose down               # detener el laboratorio (los datos se conservan)
 ```
 
 Servicios web: **Explorador Modbus :8500** · OpenPLC :8080 (openplc/openplc) · Ignition :8088 (admin/lab1234!) · FUXA :1881 · Node-RED :1880 · Conpot :18800 · MQTT :1883 · OPC UA :4840 y :50000 · Modbus :502 y :5020
 
-Notas por sistema (detalle en la cabecera de `docker-compose.yml`): en **Windows** clone dentro de WSL, no en `C:\Users\...`, y si el puerto 50000 está reservado por Hyper-V cambie el mapeo a `4850:50000`; en **Linux** nativo, si su usuario no es el uid 1000, ejecute una vez `sudo chown -R 1000:1000 nodered-data`.
+Desde el PC se entra siempre por `localhost:<puerto>`; las IPs `172.28.0.x` son las que usan los contenedores entre sí (p. ej. `opc.tcp://172.28.0.21:4840/lab/` desde Ignition o FUXA).
+
+### macOS (Intel o Apple Silicon)
+
+1. Instale [Docker Desktop para Mac](https://docs.docker.com/desktop/setup/install/mac-install/) y ábralo (icono de la ballena en la barra de menús).
+2. Solo Apple Silicon (M1/M2/M3…): Docker Desktop → **Settings → General → Use Rosetta for x86_64/amd64 emulation** activado. OpenPLC y Conpot corren mucho mejor así.
+3. En Terminal:
+   ```bash
+   git clone https://github.com/Pbarbecho/ot-lab.git
+   cd ot-lab
+   docker compose up -d
+   ```
+
+### Windows 10/11 (Docker Desktop + WSL 2)
+
+1. En PowerShell **como administrador**: `wsl --install` (instala WSL 2 con Ubuntu) y reinicie.
+2. Instale [Docker Desktop para Windows](https://docs.docker.com/desktop/setup/install/windows-install/) con la opción **Use WSL 2 based engine**. En **Settings → Resources → WSL integration** active su distribución (Ubuntu).
+3. Trabaje **dentro de WSL**: abra *Ubuntu* desde el menú Inicio y clone allí, no en `C:\Users\...` (en NTFS los montajes son lentos y Git puede cambiar los fines de línea):
+   ```bash
+   git clone https://github.com/Pbarbecho/ot-lab.git ~/ot-lab
+   cd ~/ot-lab
+   docker compose up -d
+   ```
+   Desde el Explorador de Windows la carpeta está en `\\wsl$\Ubuntu\home\<usuario>\ot-lab`. Los navegadores de Windows llegan igual a `http://localhost:8500`.
+4. Si `docker compose up` falla con *An attempt was made to access a socket in a way forbidden by its access permissions*, el puerto está en un rango reservado por Hyper-V. Compruébelo con `netsh interface ipv4 show excludedportrange protocol=tcp` y, si es el 50000, cambie en `docker-compose.yml` el mapeo de `opc-plc` a `"4850:50000"` (UaExpert: `opc.tcp://localhost:4850`).
+5. Los scripts `scripts/*.sh` se ejecutan desde la terminal de Ubuntu (WSL), no desde PowerShell.
+
+### Linux (Ubuntu, Debian, Fedora…)
+
+1. Instale [Docker Engine](https://docs.docker.com/engine/install/) con el plugin `docker compose` (o Docker Desktop para Linux).
+2. Para usar `docker` sin `sudo`: `sudo usermod -aG docker $USER` y cierre e inicie sesión.
+3. Clone y arranque:
+   ```bash
+   git clone https://github.com/Pbarbecho/ot-lab.git
+   cd ot-lab
+   sudo chown -R 1000:1000 nodered-data   # solo si su usuario no es el uid 1000 (compruébelo con: id -u)
+   docker compose up -d
+   ```
+4. En Linux nativo el PC sí alcanza directamente las IPs `172.28.0.x` (en macOS y Windows no).
+
+### Datos y persistencia
+
+- `fuxa-data/` y `nodered-data/`: proyectos de FUXA y flujos de Node-RED en su disco (carpetas locales; no se suben al repositorio).
+- Ignition guarda sus datos en el volumen de Docker `ignition-data` (la imagen necesita crear sus archivos iniciales). Respáldelo con *Gateway Backup* (`.gwbk`) desde `http://localhost:8088`.
+- `docker compose down` conserva todo; `docker compose down -v` **borra** el volumen de Ignition.
 
 ## Explorador Modbus (Taller 5 · prácticas 1a y 1b) · `http://localhost:8500`
 

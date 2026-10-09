@@ -93,7 +93,7 @@ label{display:inline-flex;align-items:center;gap:6px;font-size:16px;color:var(--
 .dg .ch{font-family:var(--mono);font-size:19px;font-weight:600;fill:var(--rojo)}
 .dg .st2{font-size:19px;fill:var(--cuerpo)}
 .dg .st2 tspan.on{font-weight:700;fill:var(--rojo)}.dg .st2 tspan.b{font-weight:700;fill:var(--ink)}
-.dg .ty{font-size:14px;fill:var(--gris)}
+.dg .ty{font-size:13px;fill:var(--gris)}
 .dg .ico{fill:none;stroke:var(--ink);stroke-width:3}.dg .ico.on{fill:var(--rojo);stroke:var(--rojo)}
 .dg .ico.led{transition:fill .3s}.dg .ico.led.lit{fill:#2E9E4F;stroke:#2E9E4F;filter:drop-shadow(0 0 4px #2E9E4F)}
 .dg .pkt{fill:var(--ink);stroke:#fff;stroke-width:2.5;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}.dg .pkt.w{fill:var(--rojo)}
@@ -322,14 +322,14 @@ body.solo-panel #btn-tab-open,body.solo-panel #btn-drawer{display:none}
 .dg,.esc{width:calc(100% * var(--z));max-width:100%;margin:0 auto}
 
 /* tablero en 3D: extrusión plana (sin degradados) + perspectiva suave + sombras */
-.dg{transform:perspective(1800px) rotateX(4deg) rotateY(-2deg);transform-origin:50% 45%;overflow:visible}
+.dg{transform:perspective(2000px) rotateX(3deg);transform-origin:50% 45%;overflow:visible}
 [data-block="tablero"]{overflow:visible}
 .dg .ext .side{fill:#8FA3B8;stroke:var(--ink);stroke-width:1.5;stroke-linejoin:round}
 .dg .ext .bottom{fill:#6F879E;stroke:var(--ink);stroke-width:1.5;stroke-linejoin:round}
 .dg .ext.plc3d .side{fill:#7F94AA}.dg .ext.plc3d .bottom{fill:#5E7187}
 .dg .ext.row3d .side{fill:#C9D4DF}.dg .ext.row3d .bottom{fill:#AEBCCB}
-.dg .card{filter:drop-shadow(6px 8px 6px rgba(0,40,86,.22))}
-.dg .plc{filter:drop-shadow(10px 14px 12px rgba(0,40,86,.28))}
+.dg .card{filter:drop-shadow(4px 6px 4px rgba(0,40,86,.18))}
+.dg .plc{filter:drop-shadow(8px 10px 8px rgba(0,40,86,.22))}
 .dg .row{filter:drop-shadow(3px 4px 3px rgba(0,40,86,.18))}
 .dg g.item.flash-w .ext .side{fill:#C97B76}.dg g.item.flash-w .ext .bottom{fill:#A85C57}
 .dg .ln{filter:drop-shadow(2px 3px 2px rgba(0,0,0,.25))}

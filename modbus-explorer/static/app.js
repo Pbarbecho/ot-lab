@@ -211,16 +211,16 @@ function buildTablero() {
       const rw = TABLE_INFO[it.table].acc === 'R/W';
       st.appendChild(el('path', { class: 'ln' + (rw ? ' w' : ''), d: it.pIn }));
       // etiqueta R / R/W sobre el cable, cerca de la tarjeta
-      const lx = isOut ? 640 - 12 : 230 + 12, ly = cy - 12;
+      const lx = isOut ? 640 - 18 : 230 + 18, ly = cy - 14;
       st.appendChild(el('text', { class: 'acc' + (rw ? ' w' : ''), x: lx, y: ly, 'text-anchor': isOut ? 'end' : 'start' }, rw ? 'R/W' : 'R'));
       const g = el('g', { class: 'item', id: `it-${it.table}-${it.addr}` });
       g.appendChild(extrude(x, y, 230, 82, 10, 'card3d'));
       g.appendChild(el('rect', { class: 'card', x, y, width: 230, height: 82, rx: 8 }));
       g.appendChild(icon(it.icon, x + 8, y));
-      g.appendChild(el('text', { class: 'nm2', x: x + 66, y: y + 34 }, it.name));
-      g.appendChild(el('text', { class: 'ch', x: x + 66, y: y + 64 }, `${{ di: 'DI', coils: 'coil', ir: 'IR', hr: 'HR' }[it.table]} ${it.addr}`));
-      const tv = el('text', { class: 'st2', x: x + 146, y: y + 64 }); tv.appendChild(el('tspan', { class: 'b' }, '—')); g.appendChild(tv);
-      g.appendChild(el('text', { class: 'ty', x: x + 66, y: y + 80 }, `clave JSON "${it.addr + 1}" · ${{ di: 1, coils: 0, ir: 3, hr: 4 }[it.table]}${String(it.addr + 1).padStart(4, '0')}`));
+      g.appendChild(el('text', { class: 'nm2', x: x + 66, y: y + 29 }, it.name));
+      g.appendChild(el('text', { class: 'ch', x: x + 66, y: y + 55 }, `${{ di: 'DI', coils: 'coil', ir: 'IR', hr: 'HR' }[it.table]} ${it.addr}`));
+      const tv = el('text', { class: 'st2', x: x + 146, y: y + 55 }); tv.appendChild(el('tspan', { class: 'b' }, '—')); g.appendChild(tv);
+      g.appendChild(el('text', { class: 'ty', x: x + 66, y: y + 73 }, `clave JSON "${it.addr + 1}" · ${{ di: 1, coils: 0, ir: 3, hr: 4 }[it.table]}${String(it.addr + 1).padStart(4, '0')}`));
       it.g = g; it.tv = tv; it.shown = undefined;
       cards.appendChild(g); S.items.push(it);
     });

@@ -91,9 +91,27 @@ services:
     build: ./opcua
     container_name: opcua-py
     restart: unless-stopped
+    volumes:
+      - ./opcua:/app:ro                            # server.py generado por el Explorador OPC UA: basta reiniciar, sin reconstruir
     ports: ["4840:4840"]
     networks:
       ot-lab: { ipv4_address: 172.28.0.21 }
+
+  opcua-explorer:
+    build: ./opcua-explorer
+    container_name: opcua-explorer
+    restart: unless-stopped
+    # Editor gráfico del servidor opcua-py (objetos y variables → opcua/server.py) y cliente asyncua
+    # con los mensajes OPC UA Binary decodificados (Hello, OpenSecureChannel, CreateSession, Read, Publish…).
+    environment:
+      TZ: "America/Guayaquil"
+    volumes:
+      - ./opcua:/app/opcua                         # modelo.json y server.py: el editor los escribe
+      - /var/run/docker.sock:/var/run/docker.sock  # solo para «Guardar y reiniciar opcua-py» (quítelo si no lo quiere)
+    ports: ["8600:8600"]
+    depends_on: [opcua-py]
+    networks:
+      ot-lab: { ipv4_address: 172.28.0.41 }
 
   ignition:
     image: inductiveautomation/ignition:latest

@@ -33,3 +33,7 @@ modbus/tablero.json
 
 # Documentación (guía, LaTeX, figuras): solo local, no se sube al repo
 docs/
+
+# Python
+__pycache__/
+*.pyc

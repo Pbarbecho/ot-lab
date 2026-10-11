@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explorador OPC UA · ot-lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700;800&family=Fira+Code:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="brandbar"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div>
+<header>
+  <img class="logo" src="marca/logo_ucuenca_blanco.png" alt="Universidad de Cuenca">
+  <div class="htxt">
+    <div class="kicker">Informática Industrial · OPC UA · servidor propio opcua-py y cliente asyncua</div>
+    <h1>Explorador OPC UA</h1>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chip-session">sin sesión</span>
+    <span class="chip" id="chip-server">opcua-py ?</span>
+    <a class="chip link" id="chip-modbus" href="http://localhost:8500" target="_blank" rel="noopener">Explorador Modbus ↗</a>
+  </div>
+  <img class="banda" src="marca/banda_modulos_oscuro.png" alt="">
+</header>
+
+<main>
+<section class="left">
+  <div class="panel" id="addr-panel">
+    <div class="lbl row"><span>Espacio de direcciones · opcua-py</span><span class="sp"></span><span class="mono gr" id="addr-meta"></span></div>
+    <div class="aspace" id="aspace"></div>
+    <div class="legend">
+      <span><b class="badge r">R</b> solo lectura</span><span><b class="badge rw">R/W</b> escribible por los clientes</span>
+      <span><i class="dotlive"></i> valor en vivo por suscripción (conéctese a opcua-py en «Cliente»)</span>
+      <span class="gr">pulse un objeto o una variable para editarlo y ver sus líneas en server.py</span>
+    </div>
+  </div>
+
+  <div class="panel" id="code-panel">
+    <div class="lbl row"><span>opcua/server.py · generado del modelo</span><span class="sp"></span>
+      <span class="mono gr" id="code-meta"></span>
+      <label class="chk small"><input type="checkbox" id="code-only"> solo cambios</label>
+    </div>
+    <div class="codeview" id="codeview"></div>
+    <div class="legend">
+      <span><i class="sw add"></i>línea nueva (aún no está en disco)</span><span><i class="sw del"></i>línea que desaparece</span>
+      <span><i class="sw sel"></i>líneas del elemento seleccionado</span>
+    </div>
+  </div>
+</section>
+
+<section class="right">
+  <nav class="tabs" id="tabs">
+    <button data-tab="t-editor" class="on">Editor<small>SERVIDOR · modelo</small></button>
+    <button data-tab="t-client">Cliente asyncua<small>navegar · leer · escribir</small></button>
+    <button data-tab="t-msgs">Mensajes<small id="msgs-count">OPC UA Binary</small></button>
+  </nav>
+
+  <!-- ------------------------------------------------ Editor -->
+  <div class="tab on" id="t-editor">
+    <div class="box">
+      <h3>Servidor · <code>opcua-py</code></h3>
+      <div class="frow wrap">
+        <label>Nombre <input id="srv-nombre" class="w190"></label>
+        <label>Ciclo <input id="srv-ciclo" type="number" min="100" max="60000" step="100" class="w90"> ms</label>
+      </div>
+      <div class="frow wrap">
+        <label>Endpoint <input id="srv-endpoint" class="w320 mono"></label>
+      </div>
+      <div class="frow wrap">
+        <label>Namespace <input id="srv-namespace" class="w320 mono"></label>
+      </div>
+      <div class="frow wrap">
+        <span class="gr">Cargar:</span>
+        <button class="btn mini gris" id="btn-m-disk">Lo guardado en disco</button>
+        <button class="btn mini gris" id="btn-m-default">Modelo de fábrica</button>
+        <button class="btn mini gris" id="btn-m-empty">Vacío</button>
+      </div>
+    </div>
+
+    <div class="box" id="sel-box">
+      <h3 id="sel-title">Elemento seleccionado</h3>
+      <div id="sel-form"></div>
+    </div>
+
+    <div class="banner hidden" id="model-error"></div>
+
+    <div class="box">
+      <h3>Aplicar en el servidor</h3>
+      <p class="note"><b>Guardar</b> escribe <code>opcua/modelo.json</code> y <code>opcua/server.py</code> en su disco (carpeta del laboratorio). <b>Reiniciar</b> relanza el contenedor <code>opcua-py</code> con el código nuevo: los clientes conectados (UaExpert, Ignition, FUXA…) se desconectan unos segundos y lo escrito en las variables se pierde.</p>
+      <div class="frow wrap">
+        <button class="btn" id="btn-save">Guardar</button>
+        <button class="btn rojo" id="btn-apply">Guardar y reiniciar opcua-py</button>
+        <span class="sp"></span><span class="mono gr" id="save-status"></span>
+      </div>
+      <pre class="code term small hidden" id="apply-logs"></pre>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------ Cliente -->
+  <div class="tab" id="t-client">
+    <div class="box">
+      <h3>1 · Sesión · <code>asyncua.Client</code></h3>
+      <div class="frow wrap">
+        <select id="target" class="grow"></select>
+        <label>Publish <select id="interval"><option value="250">250 ms</option><option value="500" selected>500 ms</option><option value="1000">1 s</option><option value="2000">2 s</option></select></label>
+      </div>
+      <div class="frow hidden" id="custom-row"><input id="custom-url" class="grow mono" placeholder="opc.tcp://host:puerto/ruta" value="opc.tcp://172.28.0.21:4840/lab/"></div>
+      <p class="note" id="target-note"></p>
+      <div class="frow wrap">
+        <button class="btn" id="btn-connect">Conectar</button>
+        <button class="btn gris" id="btn-disconnect">Desconectar</button>
+        <span class="gr small">Seguridad <b>None</b> · usuario <b>Anónimo</b>: todo viaja en claro y se puede decodificar.</span>
+      </div>
+      <pre class="code term" id="pyline">&gt;&gt;&gt; <span class="c"># conecte y ejecute una operación: aquí verá la línea asyncua equivalente</span></pre>
+      <div class="opmsgs" id="op-msgs"></div>
+    </div>
+
+    <div class="box">
+      <h3>2 · Navegar · <code>Browse</code></h3>
+      <div class="frow wrap">
+        <button class="btn mini gris" data-root="i=85">Objects · i=85</button>
+        <button class="btn mini gris" data-root="i=84">Root · i=84</button>
+        <button class="btn mini gris" data-root="i=2253">Server · i=2253</button>
+        <span class="sp"></span><span class="gr small">pulse ▸ para expandir (una BrowseRequest cada vez)</span>
+      </div>
+      <div class="tree" id="tree"><span class="gr">Conéctese para navegar.</span></div>
+    </div>
+
+    <div class="box">
+      <h3>3 · Nodo · <code id="node-id">—</code></h3>
+      <div class="frow wrap">
+        <input id="node-input" class="grow mono" placeholder="NodeId · ej. ns=2;s=PLC1.LED">
+        <button class="btn mini" id="btn-attrs">Atributos</button>
+        <button class="btn mini" id="btn-read">Leer valor</button>
+        <button class="btn mini gris" id="btn-watch">Vigilar</button>
+      </div>
+      <div class="frow wrap hidden" id="write-row">
+        <label>Nuevo valor <input id="write-val" class="w190 mono"></label>
+        <button class="btn mini rojo" id="btn-write">Escribir</button>
+        <span class="gr small" id="write-type"></span>
+      </div>
+      <table class="tabla small" id="attrs"><tbody><tr><td class="gr">Seleccione un nodo en el árbol o escriba su NodeId.</td></tr></tbody></table>
+    </div>
+
+    <div class="box">
+      <h3>4 · Suscripción · <code>MonitoredItems</code></h3>
+      <p class="note">El servidor envía los cambios en <b>PublishResponse</b> como respuesta a las <b>PublishRequest</b> que el cliente deja pendientes: no hay sondeo de valores, pero sí un ir y venir constante de Publish (véalo en «Mensajes»).</p>
+      <table class="tabla small" id="watch"><thead><tr><th>Nodo</th><th>Valor</th><th>Estado</th><th>SourceTimestamp</th><th>Cambios</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------ Mensajes -->
+  <div class="tab" id="t-msgs">
+    <div class="box">
+      <h3>Mensajes OPC UA Binary · lo que viajó por el socket TCP</h3>
+      <div class="frow wrap">
+        <label class="chk"><input type="checkbox" id="hide-publish" checked> ocultar el tráfico de fondo: Publish de la suscripción y keep-alive del cliente (Read i=2259)</label>
+        <span class="sp"></span>
+        <button class="btn mini gris" id="btn-msgs-clear">Limpiar</button>
+      </div>
+      <div class="msglist" id="msglist"></div>
+    </div>
+    <div class="box">
+      <h3 id="msg-title">Detalle del mensaje</h3>
+      <div id="msg-detail"><span class="gr">Pulse un mensaje de la lista.</span></div>
+    </div>
+  </div>
+</section>
+</main>
+<div class="toast hidden" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

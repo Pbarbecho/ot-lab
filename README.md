@@ -7,13 +7,13 @@ La guía del laboratorio (PDF/LaTeX) se entrega aparte: no forma parte de este r
 Un solo `docker-compose.yml` para macOS, Windows 10/11 y Linux, en Intel/AMD o ARM: Docker elige solo la arquitectura de cada imagen (OpenPLC y Conpot solo existen para amd64 y en ARM corren emuladas). Siga primero los pasos de su sistema y luego:
 
 ```bash
-docker compose up -d              # la primera vez descarga imágenes y construye modbus-explorer y opcua-py
+docker compose up -d              # la primera vez descarga imágenes y construye modbus-explorer, opcua-explorer y opcua-py
 docker compose ps                 # todos "Up" (Ignition tarda 1-3 min)
 docker compose logs -f ignition   # seguir el arranque de un servicio
 docker compose down               # detener el laboratorio (los datos se conservan)
 ```
 
-Servicios web: **Explorador Modbus :8500** · OpenPLC :8080 (openplc/openplc) · Ignition :8088 (admin/lab1234!) · FUXA :1881 · Node-RED :1880 · Conpot :18800 · MQTT :1883 · OPC UA :4840 y :50000 · Modbus :502 y :5020
+Servicios web: **Explorador Modbus :8500** · **Explorador OPC UA :8600** · OpenPLC :8080 (openplc/openplc) · Ignition :8088 (admin/lab1234!) · FUXA :1881 · Node-RED :1880 · Conpot :18800 · MQTT :1883 · OPC UA :4840 y :50000 · Modbus :502 y :5020
 
 Desde el PC se entra siempre por `localhost:<puerto>`; las IPs `172.28.0.x` son las que usan los contenedores entre sí (p. ej. `opc.tcp://172.28.0.21:4840/lab/` desde Ignition o FUXA).
 
@@ -91,12 +91,32 @@ docker compose up -d --build modbus-explorer   # tras editar modbus-explorer/
 
 Dos trampas de OpenPLC que la web ya esquiva: (1) un Slave Device TCP creado con los campos RTU vacíos hace caer el runtime con *Floating point exception* (la web envía 115200/None/8/1 como el panel); (2) Monitoring toma como variable **cualquier línea con la secuencia espacio-AT-espacio**, comentarios incluidos: evítela en los comentarios del `.st`.
 
+## Explorador OPC UA · `http://localhost:8600`
+
+Contenedor `opcua-explorer` (172.28.0.41): diseña gráficamente el servidor propio `opcua-py` y lo explora con un cliente **asyncua**, enseñando los mensajes OPC UA Binary que viajan por el socket.
+
+| Zona | Qué hace |
+|---|---|
+| **Espacio de direcciones** (arriba a la izquierda) | Dibujo de `Objects` con sus objetos (p. ej. `Tanque1`, `PLC1`) y variables (`Temperatura`, `LED`…): tipo, R o R/W, NodeId, simulación y **valor en vivo** por suscripción. Las variables escribibles tienen «conmutar» o «escribir», que envían una `WriteRequest` real. **+ objeto** / **+ variable** amplían el modelo. |
+| **opcua/server.py** (abajo a la izquierda) | El código que genera el modelo, al instante: en verde las líneas nuevas, tachadas en rojo las que desaparecen respecto a lo guardado, y resaltadas las del elemento seleccionado (`add_object`, `add_variable`, `set_writable`, `write_value` de la simulación). «solo cambios» muestra únicamente las diferencias. |
+| **Editor** | Datos del servidor (nombre, endpoint, namespace, ciclo) y del elemento seleccionado: nombre, tipo (Boolean, Int16, UInt16, Int32, Float, Double, String), valor inicial, acceso, unidad, icono y simulación (senoide, cosenoide, rampa, aleatorio, pulso). **Guardar** escribe `opcua/modelo.json` y `opcua/server.py`; **Guardar y reiniciar opcua-py** lo aplica (si el servidor no arranca, muestra su error). |
+| **Cliente asyncua** | Sesión contra `opcua-py`, `opc-plc`, Ignition o un endpoint propio (seguridad None, usuario anónimo). Navegar el árbol (`Browse`), atributos de un nodo en una sola `ReadRequest`, leer, escribir con el tipo del nodo y vigilar con `MonitoredItems`. Cada operación muestra la línea asyncua equivalente y sus mensajes. |
+| **Mensajes** | Todo lo que viajó: `HEL`/`ACK`, `OPN` (OpenSecureChannel), `MSG` (CreateSession, ActivateSession, Browse, Read, Write, CreateSubscription, Publish…) y `CLO`. Al pulsar uno se ven sus bytes coloreados por campo (MessageType, SecureChannelId, TokenId, SequenceNumber, RequestId, TypeId) y el cuerpo decodificado. El tráfico de fondo (Publish y el keep-alive que asyncua envía leyendo `ServerStatus.State`, i=2259) se puede ocultar. |
+
+Los NodeId de `opcua-py` son de texto (`ns=2;s=PLC1.LED`) y no cambian al añadir o quitar elementos, así que Ignition, FUXA o Node-RED siguen encontrando sus etiquetas. `opcua-py` monta `./opcua`, de modo que basta reiniciarlo para usar el `server.py` nuevo (no hace falta reconstruir la imagen). Igual que en el explorador Modbus, el socket de Docker se monta solo para el botón de reinicio.
+
+```bash
+./scripts/comprobacion3_opcua.sh -o PLC1 -v LED -w true   # escribir desde fuera y ver el cambio en vivo en la web
+docker compose up -d --build opcua-explorer               # tras editar opcua-explorer/
+```
+
 ## Estructura
 - `docker-compose.yml`          — laboratorio completo, para cualquier SO y arquitectura (platform amd64 solo en openplc/conpot, volumen con nombre para Ignition)
 - `modbus-explorer/`            — Explorador Modbus (FastAPI + pymodbus + tcpdump): `app.py`, `static/` (web), `programs/` (plantillas .st para OpenPLC)
 - `modbus/server.json`          — registros del esclavo Modbus simulado (clave JSON = dirección + 1); lo escribe el editor «Modbus server» del explorador
 - `modbus/tablero.json`         — nombres, iconos y formatos del tablero del editor (lo crea cada estudiante; no se versiona)
-- `opcua/`                      — servidor OPC UA propio en Python (asyncua)
+- `opcua-explorer/`             — Explorador OPC UA (FastAPI + asyncua): `generator.py` (modelo → server.py), `uatap.py` (captura y decodificación de mensajes), `static/` (web)
+- `opcua/`                      — servidor OPC UA propio: `modelo.json` (lo escribe el editor) y `server.py` generado a partir de él
 - `mosquitto/mosquitto.conf`    — broker MQTT (sin auth, solo laboratorio)
 - `scripts/`                    — `comprobacion2_modbus.sh`, `comprobacion3_opcua.sh`, `wireshark_vivo.sh`, `vacio.st`
 - `fuxa-data/`, `nodered-data/` — proyectos de FUXA y flujos de Node-RED en el disco local (bind mounts; no se versionan)

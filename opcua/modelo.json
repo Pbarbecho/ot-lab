@@ -1,0 +1,85 @@
+{
+  "servidor": {
+    "nombre": "Lab OPC UA Python",
+    "endpoint": "opc.tcp://0.0.0.0:4840/lab/",
+    "namespace": "http://lab.local",
+    "ciclo_ms": 1000
+  },
+  "objetos": [
+    {
+      "nombre": "Tanque1",
+      "icono": "tank",
+      "variables": [
+        {
+          "nombre": "Nivel",
+          "tipo": "Double",
+          "valor": 0.0,
+          "escribible": false,
+          "icono": "drop",
+          "unidad": "%",
+          "sim": {
+            "forma": "seno",
+            "centro": 50.0,
+            "amplitud": 30.0,
+            "periodo_s": 63.0
+          }
+        },
+        {
+          "nombre": "Temperatura",
+          "tipo": "Double",
+          "valor": 20.0,
+          "escribible": false,
+          "icono": "thermo",
+          "unidad": "°C",
+          "sim": {
+            "forma": "coseno",
+            "centro": 20.0,
+            "amplitud": 5.0,
+            "periodo_s": 94.0
+          }
+        },
+        {
+          "nombre": "Valvula",
+          "tipo": "Boolean",
+          "valor": false,
+          "escribible": true,
+          "icono": "valve",
+          "unidad": "",
+          "sim": {
+            "forma": "ninguna"
+          }
+        }
+      ]
+    },
+    {
+      "nombre": "PLC1",
+      "icono": "plc",
+      "variables": [
+        {
+          "nombre": "Temperatura",
+          "tipo": "Double",
+          "valor": 23.5,
+          "escribible": false,
+          "icono": "thermo",
+          "unidad": "°C",
+          "sim": {
+            "forma": "aleatorio",
+            "min": 22.0,
+            "max": 26.0
+          }
+        },
+        {
+          "nombre": "LED",
+          "tipo": "Boolean",
+          "valor": false,
+          "escribible": true,
+          "icono": "led",
+          "unidad": "",
+          "sim": {
+            "forma": "ninguna"
+          }
+        }
+      ]
+    }
+  ]
+}

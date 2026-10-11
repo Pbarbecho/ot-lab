@@ -135,7 +135,11 @@ const S = { tablero: 'custom', vals: { di: {}, coils: {}, ir: {}, hr: {} }, item
 async function api(path, body, method) {
   const r = await fetch(path, { method: method || (body ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.detail || `${r.status} ${r.statusText}`);
+  if (!r.ok) {
+    const d = j.detail;
+    const msg = Array.isArray(d) ? d.map(x => `${(x.loc || []).filter(k => k !== 'body').join('.')}: ${x.msg}`).join(' · ') : d;
+    throw new Error(msg || `${r.status} ${r.statusText}`);
+  }
   return j;
 }
 let toastT;
@@ -409,6 +413,7 @@ async function runOp(op, btn) {
       res = await api('/api/write', body);
     }
     showOp(res); logOp(res, addr);
+    if (res.connected === false) { sessionLost(res.error); return res; }
     const warn = declaredWarning(FC_TABLE[res.fc], addr, count);
     if (warn) { const b = $('#op-banner'); if (b.classList.contains('hidden')) { b.className = 'banner'; b.innerHTML = `<b>Aviso:</b> ${warn}`; } else b.innerHTML += `<br><b>Aviso:</b> ${warn}`; }
     if (res.ok) {
@@ -423,7 +428,7 @@ async function runOp(op, btn) {
     escPacket();
     bcast({ type: 'op', res, addr, count, vals: S.vals });
     return res;
-  } catch (e) { toast(e.message, true); if (/sesión/i.test(e.message)) { S.session.connected = false; setChipSession(); } return null; }
+  } catch (e) { toast(e.message, true); if (/sesión/i.test(e.message)) sessionLost(); return null; }
   finally { busy(btn, false); }
 }
 function renderSteps(sel, steps) {
@@ -445,6 +450,11 @@ function fillForm(op) {
 }
 
 /* ------------------------------------------------------------------ sesión */
+function sessionLost(why) {   // el socket TCP se cerró (esclavo caído o reiniciado): parar el sondeo y avisar
+  if (S.poll) togglePoll();
+  S.session = { ...S.session, connected: false }; setChipSession(); bcast({ type: 'session', session: S.session });
+  toast('Se perdió la conexión con el esclavo' + (why ? ` (${why})` : '') + ': pulse «Conectar» de nuevo.', true);
+}
 function targetById(id) { return S.targets.find(t => t.id === id); }
 function setChipSession() {
   escUpdate();
@@ -476,10 +486,12 @@ async function initTargets() {
 
 /* ------------------------------------------------------------------ sondeo (como OpenPLC) */
 function pollTick() {
+  if (S.pollBusy) return;   // el ciclo anterior aún espera al esclavo: saltar este tick en vez de encolar peticiones
   const T = TABLEROS[S.tablero]; const byTable = {};
   [...T.inputs, ...T.outputs].forEach(it => { byTable[it.table] = Math.max(byTable[it.table] || 0, it.addr + 1); });
   const ops = Object.entries(byTable).map(([t, n]) => ({ read: t, addr: 0, count: n }));
-  (async () => { for (const op of ops) { if (!S.poll) break; await runOp(op); } })();
+  S.pollBusy = true;
+  (async () => { try { for (const op of ops) { if (!S.poll) break; await runOp(op); } } finally { S.pollBusy = false; } })();
 }
 function togglePoll() {
   const b = $('#btn-poll');

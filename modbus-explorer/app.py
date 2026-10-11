@@ -117,9 +117,10 @@ class Session:
                 error = f"{type(e).__name__}: {e}"
             elapsed = (time.perf_counter() - t0) * 1000
             frames = list(self._frames)
-        self.seq += 1
-        return {"seq": self.seq, "elapsed_ms": round(elapsed, 2), "frames": [decode_frame(f) for f in frames],
-                "error": error, "result": result}
+            self.seq += 1
+            seq, connected = self.seq, self.connected
+        return {"seq": seq, "elapsed_ms": round(elapsed, 2), "frames": [decode_frame(f) for f in frames],
+                "error": error, "result": result, "connected": connected}
 
 
 SESSION = Session()
@@ -188,14 +189,17 @@ def decode_frame(f: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------- modelos
 class ConnectReq(BaseModel):
     host: str = "172.28.0.30"
-    port: int = 5020
-    unit: int = 1
+    port: int = Field(5020, ge=1, le=65535)
+    unit: int = Field(1, ge=0, le=255)      # Unit Identifier: un solo byte del MBAP
+
+
+READ_MAX = {"coils": 2000, "di": 2000, "hr": 125, "ir": 125}   # lo que cabe en una PDU de 253 bytes
 
 
 class ReadReq(BaseModel):
     table: str = Field(pattern="^(coils|di|hr|ir)$")
     address: int = Field(ge=0, le=65535)
-    count: int = Field(ge=1, le=125)
+    count: int = Field(ge=1, le=2000)
 
 
 class WriteReq(BaseModel):
@@ -255,29 +259,52 @@ def disconnect() -> dict[str, Any]:
 
 @app.post("/api/read")
 def read(req: ReadReq) -> dict[str, Any]:
+    if req.count > READ_MAX[req.table]:
+        raise HTTPException(422, f"Modbus limita una lectura de {req.table} a {READ_MAX[req.table]} por petición (count={req.count}).")
     fn, fc = READ_FN[req.table]
     pyline = f"c.{fn}({req.address}, count={req.count}, device_id={SESSION.unit})"
     res = SESSION.run(fn, req.address, count=req.count, device_id=SESSION.unit)
     return pack_result(res, fc, pyline, req.table, req.count)
 
 
+BIT_ON, BIT_OFF = {"1", "true", "t", "on", "v", "si", "sí"}, {"0", "false", "f", "off", "no"}
+
+
+def to_bit(x: Any) -> bool:
+    """Un coil es un bit: solo True/False, 0/1 o sus nombres. Cualquier otra cosa se rechaza (no se escribe OFF)."""
+    if isinstance(x, bool):
+        return x
+    if isinstance(x, int) and x in (0, 1):
+        return bool(x)
+    if isinstance(x, str) and x.strip().lower() in BIT_ON | BIT_OFF:
+        return x.strip().lower() in BIT_ON
+    raise HTTPException(422, f"Un coil es un bit: «{x}» no es 0/1, true/false ni on/off.")
+
+
+def to_word(x: Any) -> int:
+    """Un registro es un entero. Fuera de 0–65535 se deja pasar: pymodbus se queja (comportamiento didáctico)."""
+    if isinstance(x, bool):
+        raise HTTPException(422, f"Un registro es un entero de 16 bits, no un booleano ({x}).")
+    if isinstance(x, int):
+        return x
+    if isinstance(x, float) and x.is_integer():
+        return int(x)
+    if isinstance(x, str) and re.fullmatch(r"\s*-?\d+\s*", x):
+        return int(x)
+    raise HTTPException(422, f"Un registro es un entero de 16 bits: «{x}» no es un entero (23,5 °C se envía escalado: 235).")
+
+
 @app.post("/api/write")
 def write(req: WriteReq) -> dict[str, Any]:
     fn, fc = WRITE_FN[req.kind]
     if req.kind in ("coil", "register"):
-        v = req.value
-        if req.kind == "coil":
-            v = bool(v) if not isinstance(v, str) else v.lower() in ("1", "true", "on")
-        else:
-            v = int(v)
+        if req.value is None:
+            raise HTTPException(422, "Indique un valor.")
+        v = to_bit(req.value) if req.kind == "coil" else to_word(req.value)
         pyline = f"c.{fn}({req.address}, {v}, device_id={SESSION.unit})"
         res = SESSION.run(fn, req.address, v, device_id=SESSION.unit)
     else:
-        vals = req.values or []
-        if req.kind == "coils":
-            vals = [bool(x) if not isinstance(x, str) else x.lower() in ("1", "true", "on") for x in vals]
-        else:
-            vals = [int(x) for x in vals]
+        vals = [to_bit(x) if req.kind == "coils" else to_word(x) for x in req.values or []]
         pyline = f"c.{fn}({req.address}, {vals}, device_id={SESSION.unit})"
         res = SESSION.run(fn, req.address, vals, device_id=SESSION.unit)
     return pack_result(res, fc, pyline)

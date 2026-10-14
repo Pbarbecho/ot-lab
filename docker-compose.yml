@@ -93,6 +93,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./opcua:/app:ro                            # server.py generado por el Explorador OPC UA: basta reiniciar, sin reconstruir
+      - ./opcua/certs:/app/certs                   # certificado autofirmado del servidor (solo si el modelo activa políticas cifradas)
     ports: ["4840:4840"]
     networks:
       ot-lab: { ipv4_address: 172.28.0.21 }
@@ -107,6 +108,7 @@ services:
       TZ: "America/Guayaquil"
     volumes:
       - ./opcua:/app/opcua                         # modelo.json y server.py: el editor los escribe
+      - ./captures:/app/captures                   # capturas .pcap para abrir en Wireshark
       - /var/run/docker.sock:/var/run/docker.sock  # solo para «Guardar y reiniciar opcua-py» (quítelo si no lo quiere)
     ports: ["8600:8600"]
     depends_on: [opcua-py]

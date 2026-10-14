@@ -19,14 +19,18 @@
   <div class="chips">
     <span class="chip" id="chip-session">sin sesión</span>
     <span class="chip" id="chip-server">opcua-py ?</span>
+    <span class="chip" id="chip-capture">Captura</span>
     <a class="chip link" id="chip-modbus" href="http://localhost:8500" target="_blank" rel="noopener">Explorador Modbus ↗</a>
+    <button class="chip btnchip" id="btn-layout-reset" title="Vuelve a colocar todos los bloques en su sitio">⟲ disposición</button>
+    <span class="chip zoom" title="Zoom de esta ventana (no afecta a las demás) · Cmd/Ctrl + − 0"><button id="zoom-out">−</button><b id="zoom-val">100 %</b><button id="zoom-in">+</button></span>
   </div>
   <img class="banda" src="marca/banda_modulos_oscuro.png" alt="">
 </header>
 
-<main>
-<section class="left">
-  <div class="panel" id="addr-panel">
+<div id="solo"></div>
+<main id="main">
+<section class="left" id="left" data-drop="left">
+  <div class="panel" id="addr-panel" data-block="aspace" data-title="Espacio de direcciones">
     <div class="lbl row"><span>Espacio de direcciones · opcua-py</span><span class="sp"></span><span class="mono gr" id="addr-meta"></span></div>
     <div class="aspace" id="aspace"></div>
     <div class="legend">
@@ -36,7 +40,7 @@
     </div>
   </div>
 
-  <div class="panel" id="code-panel">
+  <div class="panel" id="code-panel" data-block="code" data-title="server.py generado">
     <div class="lbl row"><span>opcua/server.py · generado del modelo</span><span class="sp"></span>
       <span class="mono gr" id="code-meta"></span>
       <label class="chk small"><input type="checkbox" id="code-only"> solo cambios</label>
@@ -49,16 +53,25 @@
   </div>
 </section>
 
-<section class="right">
+<section class="right" id="right">
+  <div class="rail" id="rail">
+    <button class="rb pin" id="rail-pin" title="Volver a la vista fija de dos columnas">⇤ fijar</button>
+    <button class="rb" data-railtab="t-editor">Editor</button>
+    <button class="rb" data-railtab="t-client">Cliente</button>
+    <button class="rb" data-railtab="t-msgs">Mensajes</button>
+  </div>
+  <div class="rbody">
   <nav class="tabs" id="tabs">
     <button data-tab="t-editor" class="on">Editor<small>SERVIDOR · modelo</small></button>
     <button data-tab="t-client">Cliente asyncua<small>navegar · leer · escribir</small></button>
     <button data-tab="t-msgs">Mensajes<small id="msgs-count">OPC UA Binary</small></button>
+    <a class="tabopen" id="btn-tab-open" href="?panel=1" target="_blank" rel="noopener" title="Abrir este panel completo (Editor, Cliente, Mensajes) en una pestaña nueva del navegador">↗ pestaña</a>
+    <button class="tabopen" id="btn-drawer" title="Convertir estas pestañas en un panel lateral que se oculta solo">⇥ auto</button>
   </nav>
 
   <!-- ------------------------------------------------ Editor -->
-  <div class="tab on" id="t-editor">
-    <div class="box">
+  <div class="tab on" id="t-editor" data-drop="t-editor">
+    <div class="box" data-block="ed-srv" data-title="Servidor">
       <h3>Servidor · <code>opcua-py</code></h3>
       <div class="frow wrap">
         <label>Nombre <input id="srv-nombre" class="w190"></label>
@@ -70,6 +83,15 @@
       <div class="frow wrap">
         <label>Namespace <input id="srv-namespace" class="w320 mono"></label>
       </div>
+      <details class="dev" id="srv-sec">
+        <summary>Seguridad del servidor · políticas y usuarios (prácticas de seguridad)</summary>
+        <div class="frow wrap"><label class="chk"><input type="checkbox" id="sec-none"> permitir <b>None</b> · anónimo (en claro: lo que se ve en Wireshark)</label></div>
+        <div class="frow wrap" id="sec-pols"></div>
+        <div class="lbl">Usuarios (UserNameIdentityToken)</div>
+        <div id="sec-users"></div>
+        <div class="frow"><button class="btn mini gris" id="sec-adduser">+ usuario</button></div>
+        <p class="note">Con una política cifrada el servidor crea un certificado autofirmado en <code>opcua/certs/</code> y ofrece también Sign y SignAndEncrypt; UaExpert pedirá confiar en él. Sin usuarios, <code>None</code> desmarcado deja solo la sesión cifrada anónima.</p>
+      </details>
       <div class="frow wrap">
         <span class="gr">Cargar:</span>
         <button class="btn mini gris" id="btn-m-disk">Lo guardado en disco</button>
@@ -78,14 +100,14 @@
       </div>
     </div>
 
-    <div class="box" id="sel-box">
+    <div class="box" data-block="ed-sel" data-title="Elemento seleccionado" id="sel-box">
       <h3 id="sel-title">Elemento seleccionado</h3>
       <div id="sel-form"></div>
     </div>
 
     <div class="banner hidden" id="model-error"></div>
 
-    <div class="box">
+    <div class="box" data-block="ed-apply" data-title="Aplicar en el servidor">
       <h3>Aplicar en el servidor</h3>
       <p class="note"><b>Guardar</b> escribe <code>opcua/modelo.json</code> y <code>opcua/server.py</code> en su disco (carpeta del laboratorio). <b>Reiniciar</b> relanza el contenedor <code>opcua-py</code> con el código nuevo: los clientes conectados (UaExpert, Ignition, FUXA…) se desconectan unos segundos y lo escrito en las variables se pierde.</p>
       <div class="frow wrap">
@@ -98,8 +120,8 @@
   </div>
 
   <!-- ------------------------------------------------ Cliente -->
-  <div class="tab" id="t-client">
-    <div class="box">
+  <div class="tab" id="t-client" data-drop="t-client">
+    <div class="box" data-block="cl-session" data-title="Sesión">
       <h3>1 · Sesión · <code>asyncua.Client</code></h3>
       <div class="frow wrap">
         <select id="target" class="grow"></select>
@@ -108,15 +130,24 @@
       <div class="frow hidden" id="custom-row"><input id="custom-url" class="grow mono" placeholder="opc.tcp://host:puerto/ruta" value="opc.tcp://172.28.0.21:4840/lab/"></div>
       <p class="note" id="target-note"></p>
       <div class="frow wrap">
+        <label>Política <select id="sec-policy"></select></label>
+        <label>Modo <select id="sec-mode"><option value="None">None</option><option value="Sign">Sign</option><option value="SignAndEncrypt">SignAndEncrypt</option></select></label>
+        <label>Usuario <input id="sec-user" class="w120" placeholder="anónimo"></label>
+        <label>Clave <input id="sec-pass" type="password" class="w120"></label>
+        <button class="btn mini gris" id="btn-endpoints" title="GetEndpoints: qué ofrece el servidor, sin abrir sesión">Ver endpoints</button>
+      </div>
+      <div class="banner ok small" id="sec-note"><b>Nota docente:</b> por defecto <b>SecurityPolicy None</b> y <b>acceso anónimo</b>, para ver la trama en Wireshark (bloque 4). Un atacante en la misma red vería exactamente lo mismo: es el escenario del honeypot (bloque 5). Con Sign el cuerpo sigue legible pero firmado; con SignAndEncrypt viaja cifrado y la pestaña Mensajes solo podrá mostrar las cabeceras.</div>
+      <table class="tabla small hidden" id="endpoints"><thead><tr><th>Política</th><th>Modo</th><th>Nivel</th><th>Tokens de usuario</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="frow wrap">
         <button class="btn" id="btn-connect">Conectar</button>
         <button class="btn gris" id="btn-disconnect">Desconectar</button>
-        <span class="gr small">Seguridad <b>None</b> · usuario <b>Anónimo</b>: todo viaja en claro y se puede decodificar.</span>
+        <span class="gr small" id="sec-current"></span>
       </div>
       <pre class="code term" id="pyline">&gt;&gt;&gt; <span class="c"># conecte y ejecute una operación: aquí verá la línea asyncua equivalente</span></pre>
       <div class="opmsgs" id="op-msgs"></div>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="cl-browse" data-title="Navegar">
       <h3>2 · Navegar · <code>Browse</code></h3>
       <div class="frow wrap">
         <button class="btn mini gris" data-root="i=85">Objects · i=85</button>
@@ -127,13 +158,25 @@
       <div class="tree" id="tree"><span class="gr">Conéctese para navegar.</span></div>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="cl-node" data-title="Nodo">
       <h3>3 · Nodo · <code id="node-id">—</code></h3>
       <div class="frow wrap">
         <input id="node-input" class="grow mono" placeholder="NodeId · ej. ns=2;s=PLC1.LED">
         <button class="btn mini" id="btn-attrs">Atributos</button>
         <button class="btn mini" id="btn-read">Leer valor</button>
         <button class="btn mini gris" id="btn-watch">Vigilar</button>
+      </div>
+      <div class="frow wrap small" id="watch-params">
+        <span class="gr">MonitoredItem:</span>
+        <label>Sampling <input id="w-sampling" type="number" min="0" step="50" value="0" class="w80"> ms</label>
+        <label>Queue <input id="w-queue" type="number" min="1" max="1000" value="1" class="w70"></label>
+        <label>Deadband <input id="w-deadband" type="number" min="0" step="0.1" value="0" class="w80"></label>
+        <span class="gr">0 = el más rápido que admita el servidor · deadband absoluto: no notifica cambios menores</span>
+      </div>
+      <div class="frow wrap hidden" id="call-row">
+        <span class="gr">Método · servicio <b>Call</b>:</span>
+        <button class="btn mini rojo" id="btn-call">Llamar</button>
+        <span class="gr small" id="call-info"></span>
       </div>
       <div class="frow wrap hidden" id="write-row">
         <label>Nuevo valor <input id="write-val" class="w190 mono"></label>
@@ -143,16 +186,16 @@
       <table class="tabla small" id="attrs"><tbody><tr><td class="gr">Seleccione un nodo en el árbol o escriba su NodeId.</td></tr></tbody></table>
     </div>
 
-    <div class="box">
+    <div class="box" data-block="cl-watch" data-title="Suscripción">
       <h3>4 · Suscripción · <code>MonitoredItems</code></h3>
       <p class="note">El servidor envía los cambios en <b>PublishResponse</b> como respuesta a las <b>PublishRequest</b> que el cliente deja pendientes: no hay sondeo de valores, pero sí un ir y venir constante de Publish (véalo en «Mensajes»).</p>
-      <table class="tabla small" id="watch"><thead><tr><th>Nodo</th><th>Valor</th><th>Estado</th><th>SourceTimestamp</th><th>Cambios</th><th></th></tr></thead><tbody></tbody></table>
+      <table class="tabla small" id="watch"><thead><tr><th>Nodo</th><th>Valor</th><th>Últimos valores</th><th>Estado</th><th>SourceTimestamp</th><th>Cambios</th><th></th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 
   <!-- ------------------------------------------------ Mensajes -->
-  <div class="tab" id="t-msgs">
-    <div class="box">
+  <div class="tab" id="t-msgs" data-drop="t-msgs">
+    <div class="box" data-block="ms-list" data-title="Mensajes">
       <h3>Mensajes OPC UA Binary · lo que viajó por el socket TCP</h3>
       <div class="frow wrap">
         <label class="chk"><input type="checkbox" id="hide-publish" checked> ocultar el tráfico de fondo: Publish de la suscripción y keep-alive del cliente (Read i=2259)</label>
@@ -161,10 +204,34 @@
       </div>
       <div class="msglist" id="msglist"></div>
     </div>
-    <div class="box">
+    <div class="box" data-block="ms-detail" data-title="Detalle del mensaje">
       <h3 id="msg-title">Detalle del mensaje</h3>
       <div id="msg-detail"><span class="gr">Pulse un mensaje de la lista.</span></div>
     </div>
+    <div class="box" data-block="ms-seq" data-title="Diagrama de secuencia">
+      <h3>Diagrama de secuencia · cliente ⇄ servidor</h3>
+      <div class="frow wrap"><label class="chk"><input type="radio" name="seqmode" value="handshake" checked> apertura de sesión (Hello → ActivateSession)</label><label class="chk"><input type="radio" name="seqmode" value="recent"> últimos mensajes</label></div>
+      <svg id="seq" class="seq" viewBox="0 0 760 120"></svg>
+      <p class="note">Cada flecha es un mensaje real de esta sesión (pulse una para verlo en el detalle). La apertura sigue siempre el mismo orden: <b>Hello/Acknowledge</b> negocian tamaños, <b>OpenSecureChannel</b> fija la política y el modo, <b>CreateSession</b> y <b>ActivateSession</b> abren la sesión e identifican al usuario.</p>
+    </div>
+    <div class="box" data-block="ms-table" data-title="Tabla a entregar">
+      <div class="lbl row"><span>Tabla a entregar · una fila por mensaje</span><span class="sp"></span><button class="btn mini" id="btn-csv">Exportar CSV</button><button class="btn mini gris" id="btn-tbl-clear">Vaciar</button></div>
+      <div class="tscroll"><table class="tabla small" id="optable"><thead><tr><th>#</th><th>Hora</th><th>Sentido</th><th>Tipo</th><th>Servicio</th><th>Resumen</th><th>Bytes</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="box" data-block="ms-capture" data-title="Captura · Wireshark">
+      <h3>Captura · tcpdump en <code>opcua-explorer</code> → Wireshark</h3>
+      <div class="frow wrap">
+        <button class="btn" id="btn-cap-start">● Iniciar captura</button>
+        <button class="btn gris" id="btn-cap-stop">■ Detener</button>
+        <span class="sp"></span><span id="cap-status" class="mono gr">—</span>
+      </div>
+      <div id="cap-ready" class="hidden">
+        <a class="btn rojo" id="btn-wireshark" href="#" download>Abrir en Wireshark ↗</a>
+        <span class="note">Queda también en <code>ot-lab/captures/</code>. Filtro de visualización: <code>opcua</code>. Compare lo que decodifica Wireshark con lo que muestra esta pestaña; con SignAndEncrypt solo verá cabeceras.</span>
+      </div>
+      <ul class="files" id="cap-files"></ul>
+    </div>
+  </div>
   </div>
 </section>
 </main>

@@ -37,3 +37,6 @@ docs/
 # Python
 __pycache__/
 *.pyc
+
+# Certificados autofirmados que genera opcua-py
+opcua/certs/

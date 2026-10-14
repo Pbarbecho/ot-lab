@@ -18,18 +18,23 @@ TYPES = {   # tipo OPC UA → (VariantType, conversión del valor, literal por d
     "Int16": ("Int16", int, 0),
     "UInt16": ("UInt16", int, 0),
     "Int32": ("Int32", int, 0),
+    "UInt32": ("UInt32", int, 0),
+    "Int64": ("Int64", int, 0),
     "Float": ("Float", float, 0.0),
     "Double": ("Double", float, 0.0),
     "String": ("String", str, ""),
 }
-NUMERIC = {"Int16", "UInt16", "Int32", "Float", "Double"}
-RANGES = {"Int16": (-32768, 32767), "UInt16": (0, 65535), "Int32": (-2**31, 2**31 - 1)}
-FORMS = {"ninguna", "seno", "coseno", "rampa", "aleatorio", "pulso"}
+NUMERIC = {"Int16", "UInt16", "Int32", "UInt32", "Int64", "Float", "Double"}
+RANGES = {"Int16": (-32768, 32767), "UInt16": (0, 65535), "Int32": (-2**31, 2**31 - 1), "UInt32": (0, 2**32 - 1), "Int64": (-2**63, 2**63 - 1)}
+FORMS = {"ninguna", "seno", "coseno", "rampa", "aleatorio", "pulso", "modbus"}
+MODBUS_TABLES = {"hr": "read_holding_registers", "ir": "read_input_registers", "coils": "read_coils", "di": "read_discrete_inputs"}
+POLICIES = ["Basic256Sha256", "Aes128_Sha256_RsaOaep", "Aes256_Sha256_RsaPss", "Basic128Rsa15", "Basic256"]
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,31}$")
 
 DEFAULT_MODEL: dict[str, Any] = {
     "servidor": {"nombre": "Lab OPC UA Python", "endpoint": "opc.tcp://0.0.0.0:4840/lab/",
-                 "namespace": "http://lab.local", "ciclo_ms": 1000},
+                 "namespace": "http://lab.local", "ciclo_ms": 1000,
+                 "seguridad": {"none": True, "politicas": [], "usuarios": []}},
     "objetos": [
         {"nombre": "Tanque1", "icono": "tank", "variables": [
             {"nombre": "Nivel", "tipo": "Double", "valor": 0.0, "escribible": False, "icono": "drop", "unidad": "%",
@@ -81,6 +86,21 @@ def validate(model: dict[str, Any]) -> dict[str, Any]:
     if not 100 <= ciclo <= 60000:
         raise ModelError("servidor.ciclo_ms: entre 100 y 60000 ms.")
     srv["ciclo_ms"] = ciclo
+    seg = dict(srv.get("seguridad") or {})
+    pols = [p for p in (seg.get("politicas") or []) if p in POLICIES]
+    users = []
+    for u in seg.get("usuarios") or []:
+        name, pw = str(u.get("usuario", "")).strip(), str(u.get("clave", ""))
+        if name and not re.match(r"^[A-Za-z0-9_.@-]{1,32}$", name):
+            raise ModelError(f"Usuario «{name}»: solo letras, números y . _ @ -")
+        if name and not pw:
+            raise ModelError(f"Usuario «{name}»: falta la clave.")
+        if name:
+            users.append({"usuario": name, "clave": pw})
+    none_ok = bool(seg.get("none", True))
+    if not none_ok and not pols:
+        raise ModelError("servidor.seguridad: si quita la política None, elija al menos una política cifrada.")
+    srv["seguridad"] = {"none": none_ok, "politicas": pols, "usuarios": users}
     objs, seen_obj = [], set()
     for i, o in enumerate(model.get("objetos") or []):
         name = str(o.get("nombre", "")).strip()
@@ -114,6 +134,8 @@ def validate(model: dict[str, Any]) -> dict[str, Any]:
                 raise ModelError(f"{where}: simulación «{forma}» desconocida.")
             if forma in ("seno", "coseno", "rampa", "aleatorio") and tipo not in NUMERIC:
                 raise ModelError(f"{where}: la simulación «{forma}» necesita un tipo numérico.")
+            if forma == "modbus" and tipo == "String":
+                raise ModelError(f"{where}: la pasarela Modbus necesita un tipo numérico o Boolean.")
             if forma == "pulso" and tipo != "Boolean":
                 raise ModelError(f"{where}: «pulso» es para variables Boolean.")
             if forma in ("seno", "coseno"):
@@ -129,13 +151,47 @@ def validate(model: dict[str, Any]) -> dict[str, Any]:
                     raise ModelError(f"{where}: min debe ser menor que max.")
             elif forma == "pulso":
                 sim = {"forma": forma, "periodo_s": _num(sim.get("periodo_s", 2), f"{where}.periodo_s")}
+            elif forma == "modbus":
+                orig = sim
+                tabla = str(orig.get("tabla", "hr"))
+                if tabla not in MODBUS_TABLES:
+                    raise ModelError(f"{where}: tabla Modbus «{tabla}» (use hr, ir, coils o di).")
+                if tabla in ("coils", "di") and tipo != "Boolean":
+                    raise ModelError(f"{where}: las tablas de bits (coils, di) van en una variable Boolean.")
+                if tabla in ("hr", "ir") and tipo == "Boolean":
+                    raise ModelError(f"{where}: los registros (hr, ir) van en una variable numérica.")
+                host = str(orig.get("host", "172.28.0.30")).strip()
+                if not re.match(r"^[A-Za-z0-9_.-]+$", host):
+                    raise ModelError(f"{where}: host Modbus no válido.")
+                sim = {"forma": "modbus", "host": host, "puerto": int(_num(orig.get("puerto", 5020), f"{where}.puerto")),
+                       "unit": int(_num(orig.get("unit", 1), f"{where}.unit")), "tabla": tabla,
+                       "direccion": int(_num(orig.get("direccion", 0), f"{where}.direccion")),
+                       "escala": _num(orig.get("escala", 1), f"{where}.escala")}
+                if not 0 <= sim["direccion"] <= 65535 or not 1 <= sim["puerto"] <= 65535:
+                    raise ModelError(f"{where}: dirección o puerto Modbus fuera de rango.")
             else:
                 sim = {"forma": "ninguna"}
+            rango = v.get("rango")
+            if rango is not None and rango != "":
+                try:
+                    lo, hi = float(rango[0]), float(rango[1])
+                except (TypeError, ValueError, IndexError):
+                    raise ModelError(f"{where}: el rango debe ser [mínimo, máximo].")
+                if lo >= hi:
+                    raise ModelError(f"{where}: rango mínimo < máximo.")
+                rango = [lo, hi]
+            elif sim["forma"] in ("seno", "coseno"):
+                rango = [sim["centro"] - sim["amplitud"], sim["centro"] + sim["amplitud"]]
+            elif sim["forma"] in ("rampa", "aleatorio"):
+                rango = [sim["min"], sim["max"]]
+            else:
+                rango = None
             if sim.get("periodo_s", 1) <= 0:
                 raise ModelError(f"{where}: el periodo debe ser mayor que 0.")
             vars_.append({"nombre": vname, "tipo": tipo, "valor": valor, "escribible": bool(v.get("escribible")),
-                          "icono": str(v.get("icono") or "gauge"), "unidad": str(v.get("unidad") or ""), "sim": sim})
-        objs.append({"nombre": name, "icono": str(o.get("icono") or "plc"), "variables": vars_})
+                          "icono": str(v.get("icono") or "gauge"), "unidad": str(v.get("unidad") or ""), "sim": sim,
+                          "rango": rango if tipo in NUMERIC else None})
+        objs.append({"nombre": name, "icono": str(o.get("icono") or "plc"), "variables": vars_, "metodo_reset": bool(o.get("metodo_reset"))})
     return {"servidor": srv, "objetos": objs}
 
 
@@ -155,6 +211,12 @@ def _sim_expr(v: dict[str, Any]) -> str | None:
         e = f"random.uniform({_lit(s['min'])}, {_lit(s['max'])})"
     elif f == "pulso":
         return f"int(t // {_lit(s['periodo_s'])}) % 2 == 1"
+    elif f == "modbus":
+        fn = MODBUS_TABLES[s["tabla"]]
+        bits = s["tabla"] in ("coils", "di")
+        e = f"leer_modbus({s['host']!r}, {s['puerto']}, {s['unit']}, {fn!r}, {s['direccion']}, {_lit(s['escala'])}, {bits})"
+        if tipo == "Boolean":
+            return e
     else:
         return None
     if tipo == "Double":
@@ -166,6 +228,8 @@ def _sim_expr(v: dict[str, Any]) -> str | None:
 
 def _sim_comment(v: dict[str, Any]) -> str:
     s = v["sim"]
+    if s["forma"] == "modbus":
+        return f"pasarela Modbus: {s['tabla'].upper()} {s['direccion']} de {s['host']}:{s['puerto']}" + (f" ×{_lit(s['escala'])}" if s["escala"] != 1 else "")
     return {"seno": "senoide", "coseno": "cosenoide", "rampa": "diente de sierra", "aleatorio": "ruido uniforme",
             "pulso": "conmuta ON/OFF"}.get(s["forma"], "")
 
@@ -181,6 +245,8 @@ def generate(model: dict[str, Any]) -> dict[str, Any]:
         spans.setdefault(key, [start, len(L)])
         spans[key][1] = len(L)
 
+    seg = srv["seguridad"]
+    uses_modbus = any(v["sim"]["forma"] == "modbus" for o in m["objetos"] for v in o["variables"])
     L += ['"""',
           "opcua-py · servidor OPC UA del laboratorio (asyncua)",
           "GENERADO por el Explorador OPC UA (http://localhost:8600) a partir de opcua/modelo.json.",
@@ -190,16 +256,68 @@ def generate(model: dict[str, Any]) -> dict[str, Any]:
           "import math",
           "import random",
           "",
-          "from asyncua import Server, ua",
-          "",
-          "",
-          "async def main():"]
+          "from asyncua import Server, ua"]
+    if seg["politicas"]:
+        L += ["from asyncua.crypto.cert_gen import setup_self_signed_certificate",
+              "from cryptography.x509.oid import ExtendedKeyUsageOID",
+              "from pathlib import Path"]
+    if seg["usuarios"]:
+        L += ["from asyncua.server.user_managers import UserManager",
+              "from asyncua.crypto.permission_rules import User, UserRole"]
+    if uses_modbus:
+        L += ["from pymodbus.client import ModbusTcpClient"]
+    L += ["", ""]
+    if seg["usuarios"]:
+        L += ["USUARIOS = {" + ", ".join(f"{u['usuario']!r}: {u['clave']!r}" for u in seg["usuarios"]) + "}   # usuario → clave (solo laboratorio)",
+              "",
+              "",
+              "class Usuarios(UserManager):",
+              '    """ActivateSession con UserNameIdentityToken: acepta solo los usuarios de la tabla (y el anónimo si está permitido)."""',
+              "",
+              "    def get_user(self, iserver, username=None, password=None, certificate=None):",
+              "        if username is None:" + ("" if seg["none"] else "   # sin token de usuario"),
+              "            return " + ("User(role=UserRole.User)   # anónimo permitido" if seg["none"] else "None   # anónimo rechazado: BadIdentityTokenRejected"),
+              "        if USUARIOS.get(username) == password:",
+              "            return User(role=UserRole.Admin if username == 'admin' else UserRole.User)",
+              "        return None   # clave incorrecta",
+              "", ""]
+    if uses_modbus:
+        L += ["_modbus = {}",
+              "",
+              "",
+              "def leer_modbus(host, puerto, unit, funcion, direccion, escala, bits):",
+              '    """Pasarela: lee un registro o bit Modbus TCP y lo entrega como valor OPC UA (None si el esclavo no responde)."""',
+              "    c = _modbus.get((host, puerto))",
+              "    if c is None or not c.connected:",
+              "        c = ModbusTcpClient(host, port=puerto, timeout=1, retries=0)",
+              "        c.connect()",
+              "        _modbus[(host, puerto)] = c",
+              "    r = getattr(c, funcion)(direccion, count=1, device_id=unit)",
+              "    if r.isError():",
+              "        return None",
+              "    return bool(r.bits[0]) if bits else r.registers[0] * escala",
+              "", ""]
+    L += ["async def main():"]
     s0 = len(L) + 1
-    L += ["    srv = Server()",
+    L += ["    srv = Server(" + ("user_manager=Usuarios()" if seg["usuarios"] else "") + ")",
           "    await srv.init()",
           f"    srv.set_endpoint({srv['endpoint']!r})",
           f"    srv.set_server_name({srv['nombre']!r})",
-          f"    ns = await srv.register_namespace({srv['namespace']!r})   # índice 2: el primero tras los de la norma",
+          "    await srv.set_application_uri('urn:ot-lab:opcua-py')   # debe coincidir con el certificado del servidor"]
+    if seg["politicas"]:
+        L += ["    # certificado autofirmado del servidor (se crea una vez en /app/certs y se reutiliza)",
+              "    certs = Path('/app/certs'); certs.mkdir(exist_ok=True)",
+              "    await setup_self_signed_certificate(certs / 'server_key.pem', certs / 'server_cert.der', 'urn:ot-lab:opcua-py', 'opcua-py',",
+              "                                        [ExtendedKeyUsageOID.SERVER_AUTH], {'countryName': 'EC', 'organizationName': 'Universidad de Cuenca', 'commonName': 'opcua-py'})",
+              "    await srv.load_certificate(str(certs / 'server_cert.der'))",
+              "    await srv.load_private_key(str(certs / 'server_key.pem'))",
+              "    srv.set_security_policy([" + ", ".join((["ua.SecurityPolicyType.NoSecurity"] if seg["none"] else [])
+                                                         + [f"ua.SecurityPolicyType.{p}_{mode}" for p in seg["politicas"] for mode in ("Sign", "SignAndEncrypt")]) + "])",
+              "    srv.set_identity_tokens([ua.AnonymousIdentityToken, ua.UserNameIdentityToken])" if (seg["usuarios"] and seg["none"]) else
+              ("    srv.set_identity_tokens([ua.UserNameIdentityToken])" if seg["usuarios"] else "    srv.set_identity_tokens([ua.AnonymousIdentityToken])")]
+    elif seg["usuarios"]:
+        L += ["    srv.set_identity_tokens([ua.AnonymousIdentityToken, ua.UserNameIdentityToken])" if seg["none"] else "    srv.set_identity_tokens([ua.UserNameIdentityToken])"]
+    L += [f"    ns = await srv.register_namespace({srv['namespace']!r})   # índice 2: el primero tras los de la norma",
           "    objetos = srv.nodes.objects   # carpeta Objects (ns=0;i=85)"]
     mark("srv", s0)
 
@@ -221,7 +339,24 @@ def generate(model: dict[str, Any]) -> dict[str, Any]:
                      f"{init}, ua.VariantType.{vt}){unit}")
             if v["escribible"]:
                 L.append(f"    await {vv}.set_writable()   # los clientes pueden escribirla")
+            if v["unidad"]:
+                L.append(f'    await {vv}.add_property(f"ns={{ns}};s={oname}.{v["nombre"]}.EngineeringUnits", "EngineeringUnits", {v["unidad"]!r})   # unidad visible en UaExpert/Ignition')
+            if v.get("rango"):
+                lo, hi = v["rango"]
+                L.append(f'    await {vv}.add_property(f"ns={{ns}};s={oname}.{v["nombre"]}.EURange", "EURange", ua.Range(Low={_lit(lo)}, High={_lit(hi)}))   # rango de ingeniería')
             mark(f"var:{i}:{j}", s1)
+            spans[f"obj:{i}"][1] = len(L)
+        if o["metodo_reset"]:
+            s1 = len(L) + 1
+            inits = [(_pyname(oname, v["nombre"]), repr(v["valor"]), TYPES[v["tipo"]][0]) for v in o["variables"] if v["escribible"]]
+            L.append(f"    async def {ov}_reiniciar(parent):   # método Reiniciar: devuelve las variables escribibles a su valor inicial")
+            for vv, init, vt in inits:
+                L.append(f"        await {vv}.write_value(ua.Variant({init}, ua.VariantType.{vt}))")
+            if not inits:
+                L.append("        pass   # (sin variables escribibles)")
+            L.append(f"        return [ua.Variant({len(inits)}, ua.VariantType.Int32)]   # cuántas se reiniciaron")
+            L.append(f'    await {ov}.add_method(f"ns={{ns}};s={oname}.Reiniciar", f"{{ns}}:Reiniciar", {ov}_reiniciar, [], [ua.VariantType.Int32])')
+            mark(f"met:{i}", s1)
             spans[f"obj:{i}"][1] = len(L)
 
     sims = [(i, j, v) for i, o in enumerate(m["objetos"]) for j, v in enumerate(o["variables"]) if _sim_expr(v)]
@@ -231,11 +366,16 @@ def generate(model: dict[str, Any]) -> dict[str, Any]:
           "    async with srv:",
           "        while True:"]
     if sims:
-        L.append(f"            # simulación: un valor nuevo cada {srv['ciclo_ms']} ms")
+        L.append(f"            # simulación y pasarela: un valor nuevo cada {srv['ciclo_ms']} ms")
     for i, j, v in sims:
         s1 = len(L) + 1
         vv = _pyname(m["objetos"][i]["nombre"], v["nombre"])
-        L.append(f"            await {vv}.write_value({_sim_expr(v)})   # {_sim_comment(v)}")
+        if v["sim"]["forma"] == "modbus":
+            L.append(f"            _v = {_sim_expr(v)}   # {_sim_comment(v)}")
+            L.append(f"            if _v is not None:")
+            L.append(f"                await {vv}.write_value(ua.Variant({'bool(_v)' if v['tipo'] == 'Boolean' else ('float(_v)' if v['tipo'] in ('Float', 'Double') else 'round(_v)')}, ua.VariantType.{TYPES[v['tipo']][0]}))")
+        else:
+            L.append(f"            await {vv}.write_value({_sim_expr(v)})   # {_sim_comment(v)}")
         mark(f"sim:{i}:{j}", s1)
     L += [f"            await asyncio.sleep({_lit(dt)})",
           f"            t += {_lit(dt)}",

@@ -10,17 +10,24 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import http.client
+import inspect
 import json
 import logging
 import os
+import shutil
+import signal
 import socket
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
 from asyncua import Client, ua
+from asyncua.crypto import cert_gen, security_policies as secpol
 from asyncua.ua.uaerrors import UaStatusCodeError
+from cryptography.x509.oid import ExtendedKeyUsageOID
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -37,6 +44,18 @@ SERVER_PY = OPCUA_DIR / "server.py"
 DOCKER_SOCK = os.environ.get("DOCKER_SOCK", "/var/run/docker.sock")
 OPCUA_CONTAINER = os.environ.get("OPCUA_CONTAINER", "opcua-py")
 OPCUA_HOST = os.environ.get("OPCUA_HOST", "172.28.0.21")
+CERT_DIR = Path(os.environ.get("CERT_DIR", "/app/certs"))
+CAPTURES = Path(os.environ.get("CAPTURES_DIR", "/app/captures"))
+APP_URI = "urn:ot-lab:opcua-explorer"
+POLICIES = {   # nombre de la norma → clase asyncua
+    "None": secpol.SecurityPolicyNone,
+    "Basic256Sha256": secpol.SecurityPolicyBasic256Sha256,
+    "Aes128_Sha256_RsaOaep": secpol.SecurityPolicyAes128Sha256RsaOaep,
+    "Aes256_Sha256_RsaPss": secpol.SecurityPolicyAes256Sha256RsaPss,
+    "Basic128Rsa15": secpol.SecurityPolicyBasic128Rsa15,
+    "Basic256": secpol.SecurityPolicyBasic256,
+}
+MODES = {"None": ua.MessageSecurityMode.None_, "Sign": ua.MessageSecurityMode.Sign, "SignAndEncrypt": ua.MessageSecurityMode.SignAndEncrypt}
 
 TARGETS = [
     {"id": "opcua-py", "label": "opcua-py · servidor propio (Python)", "url": "opc.tcp://172.28.0.21:4840/lab/",
@@ -44,10 +63,32 @@ TARGETS = [
     {"id": "opc-plc", "label": "opc-plc · simulador de Microsoft", "url": "opc.tcp://172.28.0.20:50000",
      "note": "Nodos de prueba en Objects/OpcPlc/Telemetry (rampas, aleatorios, picos)"},
     {"id": "ignition", "label": "ignition · servidor OPC UA del gateway", "url": "opc.tcp://172.28.0.50:62541",
-     "note": "Viene desactivado: actívelo en el gateway (Config → OPC UA → Server Settings) y admita None/Anónimo"},
+     "note": "Viene desactivado: actívelo en http://localhost:8088/web/config/opcua.settings (Config → OPC UA → Server Settings), marque Expose Tag Providers y admita None/Anónimo"},
 ]
 
 app = FastAPI(title="Explorador OPC UA · ot-lab")
+CERT_DIR.mkdir(parents=True, exist_ok=True)
+CAPTURES.mkdir(parents=True, exist_ok=True)
+CLIENT_KEY, CLIENT_CERT = CERT_DIR / "explorer_key.pem", CERT_DIR / "explorer_cert.der"
+
+
+async def ensure_client_cert() -> None:
+    """Certificado autofirmado del cliente: necesario para cualquier política distinta de None."""
+    if CLIENT_KEY.exists() and CLIENT_CERT.exists():
+        return
+    r = cert_gen.setup_self_signed_certificate(CLIENT_KEY, CLIENT_CERT, APP_URI, socket.gethostname(),
+                                               [ExtendedKeyUsageOID.CLIENT_AUTH],
+                                               {"countryName": "EC", "organizationName": "Universidad de Cuenca", "commonName": "opcua-explorer"})
+    if inspect.isawaitable(r):
+        await r
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    try:
+        await ensure_client_cert()
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("explorer").warning("no se pudo crear el certificado del cliente: %s", e)
 
 
 @app.middleware("http")
@@ -97,6 +138,7 @@ class Session:
         self.interval = 500
         self.watch = Watch()
         self.handles: dict[str, Any] = {}
+        self.security: dict[str, Any] = {"policy": "None", "mode": "None", "user": ""}
 
     @property
     def connected(self) -> bool:
@@ -108,7 +150,7 @@ class Session:
             return False
 
     def info(self) -> dict[str, Any]:
-        return {"connected": self.connected, "url": self.url, "interval": self.interval}
+        return {"connected": self.connected, "url": self.url, "interval": self.interval, "security": self.security}
 
     async def close(self) -> None:
         c, self.client, self.sub = self.client, None, None
@@ -149,10 +191,21 @@ S = Session()
 class ConnectReq(BaseModel):
     url: str = Field("opc.tcp://172.28.0.21:4840/lab/", pattern=r"^opc\.tcp://")
     interval: int = Field(500, ge=50, le=10000)   # PublishingInterval de la suscripción (ms)
+    policy: str = Field("None", pattern="^(None|Basic256Sha256|Aes128_Sha256_RsaOaep|Aes256_Sha256_RsaPss|Basic128Rsa15|Basic256)$")
+    mode: str = Field("None", pattern="^(None|Sign|SignAndEncrypt)$")
+    user: str = ""
+    password: str = ""
 
 
 class NodeReq(BaseModel):
     node: str
+
+
+class WatchReq(BaseModel):
+    node: str
+    sampling: float = Field(0, ge=0, le=60000)
+    queue: int = Field(1, ge=1, le=1000)
+    deadband: float | None = Field(None, ge=0)
 
 
 class WriteReq(BaseModel):
@@ -162,18 +215,31 @@ class WriteReq(BaseModel):
 
 @app.get("/api/targets")
 def targets() -> dict[str, Any]:
-    return {"targets": TARGETS, "session": S.info()}
+    return {"targets": TARGETS, "session": S.info(), "policies": list(POLICIES), "modes": list(MODES)}
 
 
 @app.post("/api/connect")
 async def connect(req: ConnectReq) -> dict[str, Any]:
     await S.close()
     uatap.RECORDER.clear()
+    uatap.SECURITY.update({"policy": req.policy, "mode": req.mode if req.policy != "None" else "None"})
     n0 = uatap.RECORDER.seq
     c = Client(req.url, timeout=5)
     c.session_timeout = 600000
+    c.application_uri = APP_URI
+    if req.policy != "None":
+        if req.mode == "None":
+            raise HTTPException(422, "Con una política cifrada elija el modo Sign o SignAndEncrypt.")
+        await ensure_client_cert()
+        try:
+            await c.set_security(POLICIES[req.policy], str(CLIENT_CERT), str(CLIENT_KEY), mode=MODES[req.mode])
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(422, f"No se pudo preparar la seguridad {req.policy}/{req.mode}: {status_name(e)}")
+    if req.user:
+        c.set_user(req.user)
+        c.set_password(req.password)
     try:
-        await asyncio.wait_for(c.connect(), 10)
+        await asyncio.wait_for(c.connect(), 15)
     except Exception as e:  # noqa: BLE001
         try:
             c.disconnect_socket()
@@ -181,9 +247,33 @@ async def connect(req: ConnectReq) -> dict[str, Any]:
             pass
         raise HTTPException(502, f"No se pudo conectar a {req.url}: {status_name(e)}. ¿Está el contenedor arriba y en la red ot-lab?")
     S.client, S.url, S.interval = c, req.url, req.interval
+    S.security = {"policy": req.policy, "mode": req.mode if req.policy != "None" else "None", "user": req.user}
     ns = await c.get_namespace_array()
     return {**S.info(), "namespaces": ns, "messages": uatap.RECORDER.since(n0),
-            "asyncua": f"c = Client({req.url!r}); await c.connect()"}
+            "asyncua": "c = Client(" + repr(req.url) + ")"
+                       + (f"\nawait c.set_security(SecurityPolicy{req.policy.replace('_', '')}, 'cert.der', 'key.pem', mode=MessageSecurityMode.{req.mode})" if req.policy != "None" else "")
+                       + (f"\nc.set_user({req.user!r}); c.set_password('…')" if req.user else "")
+                       + "\nawait c.connect()"}
+
+
+@app.get("/api/endpoints")
+async def endpoints(url: str) -> dict[str, Any]:
+    """GetEndpoints sin crear sesión: qué políticas, modos y tokens de usuario ofrece el servidor (lo primero que hace UaExpert)."""
+    if not url.startswith("opc.tcp://"):
+        raise HTTPException(422, "La URL debe empezar por opc.tcp://")
+    n0 = uatap.RECORDER.seq
+    c = Client(url, timeout=5)
+    try:
+        eps = await asyncio.wait_for(c.connect_and_get_server_endpoints(), 10)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"No se pudo pedir los endpoints de {url}: {status_name(e)}")
+    out = []
+    for e in eps:
+        out.append({"url": e.EndpointUrl, "policy": e.SecurityPolicyUri.rsplit("#", 1)[-1], "mode": e.SecurityMode.name.rstrip("_"),
+                    "level": e.SecurityLevel, "tokens": [t.TokenType.name for t in e.UserIdentityTokens],
+                    "server": e.Server.ApplicationName.Text if e.Server and e.Server.ApplicationName else "",
+                    "cert": bool(e.ServerCertificate)})
+    return {"endpoints": out, "messages": uatap.RECORDER.since(n0), "asyncua": f"eps = await Client({url!r}).connect_and_get_server_endpoints()"}
 
 
 @app.post("/api/disconnect")
@@ -265,7 +355,7 @@ async def node_attrs(node: str) -> dict[str, Any]:
 @app.post("/api/read")
 async def read(req: NodeReq) -> dict[str, Any]:
     nid = _nid(req.node)
-    res = await S.op(lambda: S.client.get_node(nid).read_data_value(), f"await c.get_node({req.node!r}).read_value()")
+    res = await S.op(lambda: S.client.get_node(nid).read_data_value(), f"dv = await c.get_node({req.node!r}).read_data_value()   # DataValue: valor, estado y marcas de tiempo")
     dv = res.pop("result")
     res["value"] = None if dv is None else {"Value": uatap.plain(dv.Value.Value) if dv.Value else None,
                                             "VariantType": dv.Value.VariantType.name if dv.Value else None,
@@ -285,12 +375,18 @@ def convert(text: Any, vt: ua.VariantType) -> Any:
         if s.lower() in ("0", "false", "f", "off", "no"):
             return False
         raise HTTPException(422, f"«{s}» no es un Boolean (true/false, 1/0, on/off).")
-    if vt in (ua.VariantType.SByte, ua.VariantType.Byte, ua.VariantType.Int16, ua.VariantType.UInt16, ua.VariantType.Int32,
-              ua.VariantType.UInt32, ua.VariantType.Int64, ua.VariantType.UInt64):
+    INT_RANGES = {ua.VariantType.SByte: (-128, 127), ua.VariantType.Byte: (0, 255), ua.VariantType.Int16: (-32768, 32767),
+                  ua.VariantType.UInt16: (0, 65535), ua.VariantType.Int32: (-2**31, 2**31 - 1), ua.VariantType.UInt32: (0, 2**32 - 1),
+                  ua.VariantType.Int64: (-2**63, 2**63 - 1), ua.VariantType.UInt64: (0, 2**64 - 1)}
+    if vt in INT_RANGES:
         try:
-            return int(s)
+            n = int(s)
         except ValueError:
             raise HTTPException(422, f"«{s}» no es un entero ({vt.name}).")
+        lo, hi = INT_RANGES[vt]
+        if not lo <= n <= hi:
+            raise HTTPException(422, f"{n} no cabe en un {vt.name} ({lo} … {hi}): el cliente lo rechaza antes de enviar la WriteRequest.")
+        return n
     if vt in (ua.VariantType.Float, ua.VariantType.Double):
         try:
             return float(s.replace(",", "."))
@@ -318,14 +414,32 @@ async def write(req: WriteReq) -> dict[str, Any]:
     return res
 
 
+class CallReq(BaseModel):
+    obj: str
+    method: str
+    args: list[Any] = []
+
+
+@app.post("/api/call")
+async def call(req: CallReq) -> dict[str, Any]:
+    """Servicio Call: ejecuta un método del servidor (CallRequest / CallResponse)."""
+    onid, mnid = _nid(req.obj), _nid(req.method)
+    res = await S.op(lambda: S.client.get_node(onid).call_method(mnid, *req.args),
+                     f"await c.get_node({req.obj!r}).call_method({req.method!r}{''.join(', ' + repr(a) for a in req.args)})")
+    r = res.pop("result")
+    res.update({"ok": res["error"] is None, "output": uatap.plain(r)})
+    return res
+
+
 # ---------------------------------------------------------------- suscripción
 async def _ensure_sub() -> None:
     if S.sub is None:
         S.sub = await S.client.create_subscription(S.interval, S.watch)
 
 
-async def _watch(nodes: list[tuple[str, str]]) -> dict[str, Any]:
-    """nodes: [(nodeid, etiqueta)]; crea los MonitoredItems que falten en una sola petición."""
+async def _watch(nodes: list[tuple[str, str]], sampling: float = 0, queue: int = 1, deadband: float | None = None) -> dict[str, Any]:
+    """nodes: [(nodeid, etiqueta)]; crea los MonitoredItems que falten en una sola petición.
+    sampling: SamplingInterval en ms (0 = el más rápido que admita el servidor) · queue: QueueSize · deadband: banda muerta absoluta."""
     new = [(n, label) for n, label in nodes if n not in S.handles]
 
     async def run():
@@ -334,8 +448,12 @@ async def _watch(nodes: list[tuple[str, str]]) -> dict[str, Any]:
             return []
         objs = [S.client.get_node(n) for n, _ in new]
         for n, label in new:
-            S.watch.items[n] = {"node": n, "label": label, "value": None, "status": "—", "count": 0}
-        handles = await S.sub.subscribe_data_change(objs)
+            S.watch.items[n] = {"node": n, "label": label, "value": None, "status": "—", "count": 0,
+                                "sampling": sampling, "queue": queue, "deadband": deadband}
+        flt = None
+        if deadband is not None and deadband > 0:
+            flt = ua.DataChangeFilter(Trigger=ua.DataChangeTrigger.StatusValue, DeadbandType=ua.DeadbandType.Absolute, DeadbandValue=float(deadband))
+        handles = await S.sub.subscribe_data_change(objs, sampling_interval=sampling, queuesize=queue, **({"datachange_filter": flt} if flt else {}))
         if not isinstance(handles, list):
             handles = [handles]
         bad = []
@@ -347,17 +465,18 @@ async def _watch(nodes: list[tuple[str, str]]) -> dict[str, Any]:
                 S.handles[n] = h
         return bad
 
+    extra = f", sampling_interval={sampling}, queuesize={queue}" + (f", datachange_filter=DataChangeFilter(Deadband {deadband})" if deadband else "")
     py = (f"sub = await c.create_subscription({S.interval}, manejador)   # PublishingInterval {S.interval} ms\n"
-          f"await sub.subscribe_data_change([{', '.join(repr(n) for n, _ in new[:3])}{', …' if len(new) > 3 else ''}])")
+          f"await sub.subscribe_data_change([{', '.join(repr(n) for n, _ in new[:3])}{', …' if len(new) > 3 else ''}]{extra})")
     res = await S.op(run, py)
     res["rejected"] = res.pop("result") or []
     return res
 
 
 @app.post("/api/watch")
-async def watch_add(req: NodeReq) -> dict[str, Any]:
+async def watch_add(req: WatchReq) -> dict[str, Any]:
     _nid(req.node)
-    return await _watch([(req.node, req.node)])
+    return await _watch([(req.node, req.node)], req.sampling, req.queue, req.deadband)
 
 
 @app.post("/api/unwatch")
@@ -540,9 +659,90 @@ async def model_apply() -> dict[str, Any]:
     return out
 
 
+# ---------------------------------------------------------------- captura (tcpdump dentro del contenedor) → Wireshark
+class Capture:
+    def __init__(self) -> None:
+        self.proc: subprocess.Popen | None = None
+        self.file: Path | None = None
+        self.started = 0.0
+
+    @property
+    def running(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
+
+    def info(self) -> dict[str, Any]:
+        size = self.file.stat().st_size if self.file and self.file.exists() else 0
+        return {"running": self.running, "file": self.file.name if self.file else None, "bytes": size,
+                "seconds": round(time.time() - self.started, 1) if self.running else 0, "tcpdump": shutil.which("tcpdump") is not None}
+
+    def start(self, ports: list[int]) -> dict[str, Any]:
+        if self.running:
+            return self.info()
+        if shutil.which("tcpdump") is None:
+            raise HTTPException(500, "tcpdump no está instalado en la imagen.")
+        self.file = CAPTURES / f"opcua_{dt.datetime.now():%Y%m%d_%H%M%S}.pcap"
+        flt = " or ".join(f"tcp port {p}" for p in ports) or "tcp"
+        self.proc = subprocess.Popen(["tcpdump", "-i", "any", "-U", "-s", "0", "-w", str(self.file), flt], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        # la tubería de stderr solo se lee si tcpdump muere al arrancar; después no debe llenarse (tcpdump calla con -w)
+        self.started = time.time()
+        time.sleep(0.4)
+        if self.proc.poll() is not None:
+            err = self.proc.stderr.read().decode(errors="replace") if self.proc.stderr else ""
+            self.proc = None
+            raise HTTPException(500, f"tcpdump no arrancó: {err.strip()}")
+        return self.info()
+
+    def stop(self) -> dict[str, Any]:
+        if self.running:
+            assert self.proc is not None
+            self.proc.send_signal(signal.SIGINT)
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+        self.proc = None
+        return self.info()
+
+
+CAPTURE = Capture()
+
+
+class CaptureReq(BaseModel):
+    ports: list[int] = [4840, 50000, 62541]
+
+
+@app.get("/api/capture")
+def capture_status() -> dict[str, Any]:
+    return CAPTURE.info()
+
+
+@app.post("/api/capture/start")
+def capture_start(req: CaptureReq) -> dict[str, Any]:
+    return CAPTURE.start(req.ports)
+
+
+@app.post("/api/capture/stop")
+def capture_stop() -> dict[str, Any]:
+    return CAPTURE.stop()
+
+
+@app.get("/api/capture/list")
+def capture_list() -> dict[str, Any]:
+    files = sorted(CAPTURES.glob("*.pcap*"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return {"files": [{"name": p.name, "bytes": p.stat().st_size, "mtime": dt.datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")} for p in files[:30]]}
+
+
+@app.get("/api/capture/file/{name}")
+def capture_file(name: str) -> FileResponse:
+    p = CAPTURES / Path(name).name
+    if not p.exists():
+        raise HTTPException(404, "No existe esa captura.")
+    return FileResponse(p, media_type="application/vnd.tcpdump.pcap", filename=p.name)
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "session": S.info(), "docker": Path(DOCKER_SOCK).exists()}
+    return {"ok": True, "session": S.info(), "docker": Path(DOCKER_SOCK).exists(), "capture": CAPTURE.info(), "policies": list(POLICIES), "modes": list(MODES)}
 
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

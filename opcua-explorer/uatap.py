@@ -23,6 +23,9 @@ from asyncua.ua.ua_binary import nodeid_from_binary, struct_from_binary
 MSG_TYPES = {"HEL": "Hello", "ACK": "Acknowledge", "OPN": "OpenSecureChannel", "MSG": "Message",
              "CLO": "CloseSecureChannel", "ERR": "Error", "RHE": "ReverseHello"}
 CHUNKS = {"F": "Final", "C": "Intermedio", "A": "Abortado"}
+SECURITY = {"policy": "None", "mode": "None"}   # lo fija app.py al conectar (modo pedido por el cliente)
+CHANNEL = {"policy": "None"}                    # política del canal abierto por el último OpenSecureChannel (asyncua abre antes uno None para GetEndpoints)
+SIG_BYTES = {"Basic256Sha256": 32, "Aes128_Sha256_RsaOaep": 32, "Aes256_Sha256_RsaPss": 32, "Basic128Rsa15": 20, "Basic256": 20}
 
 
 class Recorder:
@@ -171,12 +174,19 @@ def decode(raw: bytes) -> dict[str, Any]:
             if name == "SecurityPolicyUri":
                 out["policy"] = shown.rsplit("#", 1)[-1]
                 shown = out["policy"]
+                CHANNEL["policy"] = out["policy"]
             fields.append({"name": name, "from": pos, "to": pos + 4 + ln, "value": shown, "cls": "sec"})
             pos += 4 + ln
     else:             # cabecera simétrica: solo el token del canal seguro
         token = struct.unpack_from("<I", raw, pos)[0]
         fields.append({"name": "TokenId", "from": pos, "to": pos + 4, "value": token, "cls": "sec"})
         pos += 4
+        if CHANNEL["policy"] != "None" and SECURITY["mode"] == "SignAndEncrypt":   # todo lo que sigue va cifrado con la clave simétrica del canal
+            fields.append({"name": "Cuerpo cifrado", "from": pos, "to": len(raw),
+                           "value": f"{len(raw) - pos} bytes cifrados ({CHANNEL['policy']} · SignAndEncrypt): SequenceNumber, RequestId, TypeId, cuerpo y firma no son legibles",
+                           "cls": "body"})
+            out.update({"channel": chan, "service": f"{MSG_TYPES.get(mt, mt)} cifrado", "summary": "cuerpo cifrado · solo se ven las cabeceras", "encrypted": True})
+            return out
     seq, req = struct.unpack_from("<II", raw, pos)
     fields += [{"name": "SequenceNumber", "from": pos, "to": pos + 4, "value": seq, "cls": "seq"},
                {"name": "RequestId", "from": pos + 4, "to": pos + 8, "value": req, "cls": "seq"}]
@@ -197,6 +207,10 @@ def decode(raw: bytes) -> dict[str, Any]:
         body = struct_from_binary(cls, ua.utils.Buffer(raw[pos:]))   # las clases de asyncua leen su propio TypeId
         out["body"] = plain(body)
         out["summary"] = summarize(body)
+    if mt == "MSG" and CHANNEL["policy"] != "None" and SECURITY["mode"] == "Sign":
+        n = SIG_BYTES.get(SECURITY["policy"], 32)
+        fields[-1]["to"] = max(fields[-1]["from"], len(raw) - n)
+        fields.append({"name": "Firma", "from": len(raw) - n, "to": len(raw), "value": f"{n} bytes · HMAC del mensaje ({SECURITY['policy']} · Sign): el cuerpo se lee, pero no se puede alterar", "cls": "sec"})
     return out
 
 

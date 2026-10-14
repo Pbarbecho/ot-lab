@@ -710,10 +710,13 @@ function renderSeq() {
   const mode = ($('input[name=seqmode]:checked') || {}).value || 'handshake';
   let list = S.msgs.filter(m => !m.bg);
   if (mode === 'handshake') {
-    const start = list.map(m => m.type).lastIndexOf('HEL');
+    // la apertura de sesión: el último Hello al que siguió un CreateSession (asyncua abre antes un canal None solo para GetEndpoints)
+    let start = -1;
+    list.forEach((m, i) => { if (m.type === 'HEL') { const nxt = list.slice(i + 1).findIndex(x => x.type === 'HEL'); const seg = nxt >= 0 ? list.slice(i + 1, i + 1 + nxt) : list.slice(i + 1); if (seg.some(x => x.service === 'CreateSessionRequest')) start = i; } });
+    if (start < 0) start = list.map(m => m.type).lastIndexOf('HEL');
     const sub = start >= 0 ? list.slice(start) : list;
     const end = sub.findIndex(m => m.service === 'ActivateSessionResponse');
-    list = end >= 0 ? sub.slice(0, end + 1) : sub.slice(0, 8);
+    list = end >= 0 ? sub.slice(0, end + 1) : sub.slice(0, 10);
   } else list = list.slice(-14);
   const ROW = 34, top = 44, H = top + Math.max(1, list.length) * ROW + 16, L = 150, R = 610;
   let h = `<text class="life" x="${L}" y="26" text-anchor="middle">cliente asyncua</text><text class="life" x="${R}" y="26" text-anchor="middle">servidor</text>

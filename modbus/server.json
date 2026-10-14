@@ -24,22 +24,20 @@
     "path": "/metrics"
   },
   "registers": {
-    "description": "Lámina 31 (editor web, 2026-10-09 12:22). Clave JSON = direccion pymodbus + 1. IR Temperatura, IR Humedad, IR CO₂, IR Presión, HR Consigna T, HR Consigna HR, HR Umbral CO₂, HR Ventilador %, HR Modo",
-    "initializeUndefinedRegisters": true,
-    "discreteInput": {},
-    "coils": {},
+    "description": "server.json actual (editor web, 2026-10-09 14:13). Clave JSON = direccion pymodbus + 1. DI Pulsador 0, IR Sensor 0, COILS LED 0, HR Parámetro 0, COILS Bomba",
+    "initializeUndefinedRegisters": false,
+    "discreteInput": {
+      "1": false
+    },
+    "coils": {
+      "1": false,
+      "2": false
+    },
     "inputRegister": {
-      "1": 235,
-      "2": 480,
-      "3": 612,
-      "4": 1013
+      "1": 235
     },
     "holdingRegister": {
-      "1": 260,
-      "2": 500,
-      "3": 800,
-      "4": 40,
-      "5": 0
+      "1": 260
     }
   }
 }
